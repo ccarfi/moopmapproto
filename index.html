@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapillary Photo Map — Morgan Hill / Gilroy</title>
+
+<!-- Inline favicon so the browser doesn't 404 on /favicon.ico -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='12' cy='13' r='6' fill='%23E4572E'/%3E%3Ccircle cx='21' cy='21' r='6' fill='%232E86AB'/%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="legend" class="legend" hidden>
+  <div class="legend-title">Accounts</div>
+  <div id="legend-rows"></div>
+</div>
+
+<div id="loading" class="loading" role="status">
+  <span class="spinner" aria-hidden="true"></span>
+  <span>Loading photos…</span>
+</div>
+
+<div id="banner" class="banner" role="alert" hidden>
+  <span id="banner-text"></span>
+  <button type="button" id="banner-close" class="banner-close" aria-label="Dismiss">&times;</button>
+</div>
+
+<div id="overlay" class="overlay" hidden>
+  <div class="overlay-card" role="alert">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <button type="button" id="overlay-retry" class="btn" hidden>Retry</button>
+  </div>
+</div>
+
+<aside id="panel" class="panel" aria-label="Photo details" hidden>
+  <button type="button" id="panel-close" class="panel-close" aria-label="Close panel">&times;</button>
+  <div id="panel-body" class="panel-body"></div>
+</aside>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
