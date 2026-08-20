@@ -6,7 +6,7 @@
  */
 const CONFIG = {
   // Read-only Mapillary client token. Starts with "MLY|".
-  mapillaryToken: "MLY|PASTE_TOKEN_HERE",
+  mapillaryToken: "MLY|38185652681048683|1939dcd6b0775816788bca3a3f9b8935",
 
   // Search area: Morgan Hill / Gilroy, CA.
   bbox: { west: -121.72, south: 36.95, east: -121.42, north: 37.20 },
@@ -15,7 +15,7 @@ const CONFIG = {
     {
       key: "bwb",
       label: "BWB South Bay",
-      organizationId: "PASTE_ORG_ID_HERE",
+      organizationId: "1605841191131530",
       color: "#E4572E"
     },
     {
