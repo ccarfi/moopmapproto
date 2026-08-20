@@ -11,13 +11,14 @@
   var FIELDS = [
     "id", "computed_geometry", "geometry", "captured_at", "compass_angle",
     "altitude", "camera_type", "make", "model", "is_pano", "sequence",
-    "creator", "thumb_1024_url", "thumb_2048_url"
+    "creator", "thumb_1024_url", "thumb_2048_url", "thumb_original_url"
   ].join(",");
 
-  var CACHE_VERSION = "v2";
+  var CACHE_VERSION = "v3";
   var REFRESH = new URLSearchParams(location.search).get("refresh") === "1";
 
   var map, panelEl, panelBody, currentImageId = null;
+  var lightboxImageId = null, lightboxReturnFocus = null;
   var groups = {};   // account.key -> MarkerClusterGroup
   var counts = {};   // account.key -> number of markers rendered
 
@@ -282,6 +283,80 @@
     return d;
   }
 
+  /* --------------------------------------------------------- full screen */
+
+  // The sidebar shows thumb_2048; full screen starts from that same (already
+  // cached, so instant) image and upgrades to thumb_original — 4032px wide on
+  // an iPhone capture — once it has downloaded.
+  function openLightbox(img) {
+    var lb = el("lightbox");
+    var lbImg = el("lightbox-img");
+    var hint = el("lightbox-hint");
+
+    lightboxReturnFocus = document.activeElement;
+    lightboxImageId = img.id;
+
+    var quick = img.thumb_2048_url || img.thumb_1024_url;
+    lbImg.src = quick;
+    lbImg.alt = "Mapillary image " + img.id;
+
+    var full = img.thumb_original_url;
+    if (full && full !== quick) {
+      hint.textContent = "Loading full resolution…";
+      var hi = new Image();
+      hi.onload = function () {
+        if (lightboxImageId !== img.id) { return; }   // moved on already
+        lbImg.src = full;
+        hint.textContent = "Tap the photo to zoom";
+        setTimeout(function () {
+          if (lightboxImageId === img.id) { hint.textContent = ""; }
+        }, 2600);
+      };
+      hi.onerror = function () {
+        if (lightboxImageId === img.id) { hint.textContent = ""; }
+      };
+      hi.src = full;
+    } else {
+      hint.textContent = "";
+    }
+
+    setZoomed(false);
+    lb.hidden = false;
+    document.body.classList.add("lightbox-open");
+    el("lightbox-close").focus();
+  }
+
+  // Fit <-> actual pixels. Centres the scroll on the middle of the photo so
+  // zooming in doesn't dump you in the top-left corner.
+  function setZoomed(on) {
+    var lb = el("lightbox");
+    var stage = el("lightbox-stage");
+    lb.classList.toggle("zoomed", !!on);
+    if (on) {
+      stage.scrollLeft = (stage.scrollWidth - stage.clientWidth) / 2;
+      stage.scrollTop = (stage.scrollHeight - stage.clientHeight) / 2;
+    } else {
+      stage.scrollLeft = 0;
+      stage.scrollTop = 0;
+    }
+  }
+
+  // Returns true if it actually closed something, so Escape can fall through
+  // to the detail panel when no photo is open.
+  function closeLightbox() {
+    var lb = el("lightbox");
+    if (lb.hidden) { return false; }
+    lb.hidden = true;
+    lb.classList.remove("zoomed");
+    el("lightbox-img").removeAttribute("src");
+    el("lightbox-hint").textContent = "";
+    lightboxImageId = null;
+    document.body.classList.remove("lightbox-open");
+    if (lightboxReturnFocus && lightboxReturnFocus.focus) { lightboxReturnFocus.focus(); }
+    lightboxReturnFocus = null;
+    return true;
+  }
+
   function buildPhoto(img) {
     var wrap = document.createElement("div");
     wrap.className = "photo";
@@ -302,7 +377,24 @@
     image.decoding = "async";
     var triedFallback = false;
 
-    image.onload = function () { status.remove(); image.classList.add("loaded"); };
+    var zoom = document.createElement("button");
+    zoom.type = "button";
+    zoom.className = "photo-zoom";
+    zoom.setAttribute("aria-label", "View full screen");
+    zoom.title = "View full screen";
+    zoom.hidden = true;
+    zoom.innerHTML =
+      '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/>' +
+      '<path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+    zoom.onclick = function () { openLightbox(img); };
+
+    image.onload = function () {
+      status.remove();
+      image.classList.add("loaded");
+      zoom.hidden = false;      // only offer full screen once there's a photo
+    };
     image.onerror = function () {
       if (!triedFallback && img.thumb_1024_url && image.src !== img.thumb_1024_url) {
         triedFallback = true;
@@ -310,10 +402,16 @@
         return;
       }
       image.remove();
+      zoom.remove();
       status.textContent = "Photo could not be loaded.";
     };
+    // Tapping the photo itself opens full screen too — a much bigger target
+    // than the icon on a phone.
+    image.onclick = function () { openLightbox(img); };
+
     image.src = src;
     wrap.appendChild(image);
+    wrap.appendChild(zoom);
     return wrap;
   }
 
@@ -353,6 +451,7 @@
   }
 
   function openPanel(img, account) {
+    closeLightbox();
     currentImageId = img.id;
     panelBody.textContent = "";
 
@@ -408,6 +507,7 @@
   }
 
   function closePanel() {
+    closeLightbox();
     panelEl.hidden = true;
     panelBody.textContent = "";
     currentImageId = null;
@@ -612,8 +712,30 @@
 
     el("panel-close").onclick = closePanel;
     el("banner-close").onclick = function () { el("banner").hidden = true; };
+    el("lightbox-close").onclick = closeLightbox;
+
+    // Tell a tap apart from a pan: while zoomed, dragging to scroll ends in a
+    // click on the photo, which shouldn't be read as "zoom back out".
+    var downAt = null;
+    el("lightbox").addEventListener("pointerdown", function (e) {
+      downAt = { x: e.clientX, y: e.clientY };
+    });
+    el("lightbox").onclick = function (e) {
+      var moved = downAt &&
+        (Math.abs(e.clientX - downAt.x) > 8 || Math.abs(e.clientY - downAt.y) > 8);
+      downAt = null;
+      if (moved) { return; }
+      if (e.target === el("lightbox-img")) {
+        setZoomed(!el("lightbox").classList.contains("zoomed"));
+      } else {
+        closeLightbox();   // backdrop
+      }
+    };
+
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !panelEl.hidden) { closePanel(); }
+      if (e.key !== "Escape") { return; }
+      if (closeLightbox()) { return; }
+      if (!panelEl.hidden) { closePanel(); }
     });
 
     initMap();

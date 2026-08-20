@@ -256,6 +256,32 @@ html, body {
 
 .photo img.loaded { opacity: 1; }
 
+.photo img.loaded { cursor: zoom-in; }
+
+.photo-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .58);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.photo-zoom[hidden] { display: none; }
+
+.photo-zoom:hover { background: rgba(0, 0, 0, .78); }
+
+.photo-zoom:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 .photo-status {
   position: absolute;
   inset: 0;
@@ -335,6 +361,96 @@ html, body {
   border: 2px solid #fff;
   box-shadow: 0 1px 5px rgba(0, 0, 0, .35);
 }
+
+/* ------------------------------------------------------------- full screen */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, .93);
+}
+
+.lightbox[hidden] { display: none; }
+
+/* Scroll container: at fit size nothing scrolls, but zoomed in this is what
+   lets you pan around a 4032px photo on a phone. */
+.lightbox-stage {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Fit mode: whole photo visible.
+   Viewport units, not percentages: a percentage max-height against an
+   auto-sized grid track is circular, so the browser ignores it and tall
+   photos overflow a short window. The 32px matches .lightbox-stage's padding. */
+.lightbox img {
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+@supports (height: 100dvh) {
+  /* dvh tracks the mobile URL bar showing and hiding. */
+  .lightbox img { max-height: calc(100dvh - 32px); }
+}
+
+/* Zoomed: actual pixels, panned by scrolling the stage. Fitting a landscape
+   photo to a portrait phone can render it smaller than the sidebar did, so
+   this is what actually delivers "more detail" on mobile. */
+.lightbox.zoomed .lightbox-stage { place-items: start; }
+
+.lightbox.zoomed img {
+  max-width: none;
+  max-height: none;
+  cursor: zoom-out;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  z-index: 1;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.lightbox-close:hover { background: rgba(255, 255, 255, .28); }
+
+.lightbox-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.lightbox-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, .72);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.lightbox-hint:empty { display: none; }
+
+/* Stop the page behind the photo from scrolling on touch devices. */
+body.lightbox-open { overflow: hidden; }
 
 /* ----------------------------------------------------------- small screens */
 

@@ -93,6 +93,17 @@ the results after they arrive. Set it to `null` to map everything an account
 has, wherever it is. The console logs how many images came back and how many
 fell outside the box.
 
+**Full screen.** The sidebar photo has a full-screen button (and the photo
+itself is tappable). It opens with the `thumb_2048` image already on screen, so
+it appears instantly, then upgrades to `thumb_original` — 4032px wide on an
+iPhone capture — once that downloads. Tapping the photo toggles between fit-to-
+screen and actual pixels, with panning; Escape, the x, or a backdrop click
+closes it. Escape closes the photo first and the detail panel second.
+
+The zoom matters most on a phone: a landscape photo fitted to a portrait screen
+renders about 343px wide, narrower than the 375px sidebar it came from, so
+without zoom "full screen" would show *less* detail than the thumbnail.
+
 Other notes:
 
 - Markers use `computed_geometry` (the SfM-corrected position) where available

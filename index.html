@@ -45,6 +45,14 @@
   <div id="panel-body" class="panel-body"></div>
 </aside>
 
+<div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full screen photo" hidden>
+  <button type="button" id="lightbox-close" class="lightbox-close" aria-label="Exit full screen">&times;</button>
+  <div id="lightbox-stage" class="lightbox-stage">
+    <img id="lightbox-img" alt="">
+  </div>
+  <div id="lightbox-hint" class="lightbox-hint" aria-live="polite"></div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="config.js"></script>
