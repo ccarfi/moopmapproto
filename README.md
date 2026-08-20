@@ -67,30 +67,39 @@ from a project subpath (`ccarfi.github.io/moopmapproto/`).
 
 ## How the data is fetched
 
-Mapillary Graph API v4, `GET https://graph.mapillary.com/images`.
+Mapillary Graph API v4, `GET https://graph.mapillary.com/images` — one request
+per account, no bbox in the query.
 
 **Both accounts are filtered server-side.** The API documents `creator_username`
 ("the username who owns and uploaded the image") and `organization_id` as query
-parameters on `/images`, and both support pagination via `paging.next` — so there's
-no need for the client-side creator filtering fallback. `app.js` still re-checks
-`creator.username` on the results as a cheap safety net, in case the server-side
-filter is ever silently ignored.
+parameters on `/images`, and both work on their own with no bbox. Each returns
+its whole set in a single page, so there's no need for the client-side creator
+filtering fallback. `app.js` still re-checks `creator.username` on the results
+as a cheap safety net, in case the server-side filter is ever silently ignored.
 
-**The bbox is split into tiles.** The API caps a `bbox` query at *less than 0.01
-square degrees*. The configured Morgan Hill / Gilroy box is ~0.075 sq deg, roughly
-7.5× over the limit, so `app.js` splits it into a grid of `bboxTileDegrees`-sized
-tiles (default `0.09°`, i.e. 0.0081 sq deg), queries each, and merges the results
-de-duped by image id. Tiles are fetched `CONFIG.concurrency` at a time.
+**The bbox is applied client-side, not in the query.** Mapillary rejects a large
+bbox two different ways, and the Morgan Hill / Gilroy box trips both:
 
-If Mapillary ever relaxes that limit, set `bboxTileDegrees: 0` to issue a single
-request for the whole box.
+- Over 0.01 square degrees it fails outright — *"Bounding box area is too large.
+  Maximum allowed area is 0.010 square degrees, but got 0.075 square degrees."*
+- Well before that limit it also fails on data volume — *"Please reduce the
+  amount of data you're asking for"* — which depends on how much imagery the box
+  contains, from anyone, not just you. Around Morgan Hill this starts failing at
+  about 0.05° on a side and only clears reliably around 0.02°, which would take
+  roughly 195 tiled requests per account to cover the region.
+
+Filtering by account alone sidesteps both, so `CONFIG.bbox` is used to narrow
+the results after they arrive. Set it to `null` to map everything an account
+has, wherever it is. The console logs how many images came back and how many
+fell outside the box.
 
 Other notes:
 
-- Markers use `computed_geometry` (the SfM-corrected position) where available and
-  fall back to `geometry`. Images with neither are skipped.
-- Each request chain stops after `maxPages` pages and logs a console warning, so a
-  runaway result set can't hang the page.
+- Markers use `computed_geometry` (the SfM-corrected position) where available
+  and fall back to `geometry`. Images with neither are skipped.
+- `paging.next` is followed if present, stopping after `maxPages` pages with a
+  console warning. At current volumes (152 and 206 images) a single page covers
+  everything.
 - `captured_at` is epoch milliseconds UTC; the panel renders it in
   `America/Los_Angeles`.
 

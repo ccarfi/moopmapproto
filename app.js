@@ -14,7 +14,7 @@
     "creator", "thumb_1024_url", "thumb_2048_url"
   ].join(",");
 
-  var CACHE_VERSION = "v1";
+  var CACHE_VERSION = "v2";
   var REFRESH = new URLSearchParams(location.search).get("refresh") === "1";
 
   var map, panelEl, panelBody, currentImageId = null;
@@ -40,45 +40,11 @@
     return [b.west, b.south, b.east, b.north].join(",");
   }
 
-  // Split a bbox into a grid of tiles at most `size` degrees on a side. The
-  // Graph API rejects bbox queries covering 0.01 square degrees or more.
-  function tileBbox(b, size) {
-    if (!size || size <= 0) { return [b]; }
-    var tiles = [];
-    for (var w = b.west; w < b.east; w += size) {
-      for (var s = b.south; s < b.north; s += size) {
-        tiles.push({
-          west: w,
-          south: s,
-          east: Math.min(w + size, b.east),
-          north: Math.min(s + size, b.north)
-        });
-      }
-    }
-    return tiles;
-  }
-
-  // Run `worker` over items with a bounded number in flight.
-  function mapLimit(items, limit, worker) {
-    return new Promise(function (resolve, reject) {
-      var results = new Array(items.length);
-      var next = 0, active = 0, done = 0, failed = false;
-      if (!items.length) { return resolve(results); }
-      function pump() {
-        while (active < limit && next < items.length && !failed) {
-          (function (i) {
-            active++; next++;
-            Promise.resolve(worker(items[i], i)).then(function (r) {
-              results[i] = r; active--; done++;
-              if (done === items.length) { resolve(results); } else { pump(); }
-            }, function (err) {
-              failed = true; reject(err);
-            });
-          })(next);
-        }
-      }
-      pump();
-    });
+  // Is this position inside the configured area of interest?
+  function inBbox(c) {
+    var b = CONFIG.bbox;
+    if (!b) { return true; }
+    return c.lon >= b.west && c.lon <= b.east && c.lat >= b.south && c.lat <= b.north;
   }
 
   /* ------------------------------------------------------------- fetching */
@@ -187,7 +153,15 @@
     }
   }
 
-  // Fetch every image for one account across the tiled bbox, de-duped by id.
+  // Fetch every image for one account, then narrow to the configured bbox.
+  //
+  // Note there is no bbox in the *query*. Mapillary rejects a bbox covering
+  // 0.01 square degrees or more outright, and separately refuses any box
+  // holding too much imagery ("Please reduce the amount of data you're asking
+  // for") — around Morgan Hill that kicks in well before the area cap, so
+  // covering this region by tiling would take ~195 requests per account.
+  // Filtering by account alone returns the whole set in one request, so the
+  // bbox is applied here instead.
   async function fetchAccount(account) {
     var cached = readCache(account);
     if (cached) {
@@ -196,38 +170,41 @@
       return cached;
     }
 
-    var tiles = tileBbox(CONFIG.bbox, CONFIG.bboxTileDegrees);
-    var state = { capped: false };
+    var params = {};
+    if (account.organizationId) { params.organization_id = account.organizationId; }
+    if (account.creatorUsername) { params.creator_username = account.creatorUsername; }
 
-    var pages = await mapLimit(tiles, CONFIG.concurrency || 4, function (tile) {
-      var params = { bbox: bboxParam(tile) };
-      // creator_username and organization_id are both documented server-side
-      // filters on /images, and both paginate.
-      if (account.organizationId) { params.organization_id = account.organizationId; }
-      if (account.creatorUsername) { params.creator_username = account.creatorUsername; }
-      return fetchPaged(params, state);
-    });
+    var state = { capped: false };
+    var raw = await fetchPaged(params, state);
 
     if (state.capped) {
       console.warn("[mapillary-map] " + account.key + ": hit the maxPages cap (" +
-        CONFIG.maxPages + ") on at least one bbox tile — results may be incomplete. " +
-        "Raise CONFIG.maxPages or shrink CONFIG.bboxTileDegrees.");
+        CONFIG.maxPages + ") — results may be incomplete. Raise CONFIG.maxPages.");
     }
 
-    // De-dupe: tiles share edges, and belt-and-braces re-check the creator
-    // filter client-side in case the server-side one is ever ignored.
     var seen = Object.create(null);
     var images = [];
-    pages.forEach(function (batch) {
-      batch.forEach(function (img) {
-        if (!img || !has(img.id) || seen[img.id]) { return; }
-        if (account.creatorUsername &&
-            img.creator && has(img.creator.username) &&
-            img.creator.username !== account.creatorUsername) { return; }
-        seen[img.id] = true;
-        images.push(img);
-      });
+    var outside = 0, unplaced = 0;
+
+    raw.forEach(function (img) {
+      if (!img || !has(img.id) || seen[img.id]) { return; }
+      // Belt-and-braces: re-check the creator in case the server-side filter
+      // is ever silently ignored.
+      if (account.creatorUsername &&
+          img.creator && has(img.creator.username) &&
+          img.creator.username !== account.creatorUsername) { return; }
+      seen[img.id] = true;
+
+      var c = coordsOf(img);
+      if (!c) { unplaced++; return; }
+      if (!inBbox(c)) { outside++; return; }
+      images.push(img);
     });
+
+    console.info("[mapillary-map] " + account.key + ": " + images.length +
+      " images in bbox (" + raw.length + " returned by the API" +
+      (outside ? ", " + outside + " outside the bbox" : "") +
+      (unplaced ? ", " + unplaced + " with no position" : "") + ").");
 
     writeCache(account, images);
     return images;
