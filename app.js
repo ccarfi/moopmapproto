@@ -19,6 +19,8 @@
 
   var map, panelEl, panelBody, currentImageId = null;
   var lightboxImageId = null, lightboxReturnFocus = null;
+  var basemapLayers = {};   // basemap.key -> TileLayer
+  var currentBasemap = null;
   var groups = {};   // account.key -> MarkerClusterGroup
   var counts = {};   // account.key -> number of markers rendered
 
@@ -566,6 +568,81 @@
     return n;
   }
 
+  /* --------------------------------------------------------------- basemaps */
+
+  var BASEMAP_PREF = "moopmap:basemap";
+
+  function readBasemapPref() {
+    try { return localStorage.getItem(BASEMAP_PREF); } catch (e) { return null; }
+  }
+
+  function writeBasemapPref(key) {
+    try { localStorage.setItem(BASEMAP_PREF, key); } catch (e) { /* private mode */ }
+  }
+
+  function basemapByKey(key) {
+    var list = CONFIG.basemaps || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].key === key) { return list[i]; }
+    }
+    return null;
+  }
+
+  function selectBasemap(key) {
+    var bm = basemapByKey(key);
+    if (!bm || key === currentBasemap) { return; }
+
+    if (currentBasemap && basemapLayers[currentBasemap]) {
+      map.removeLayer(basemapLayers[currentBasemap]);
+    }
+
+    if (!basemapLayers[key]) {
+      basemapLayers[key] = L.tileLayer(bm.url, {
+        // maxZoom is what the layer will render at; maxNativeZoom is how deep
+        // the service actually goes. Without both, Leaflet either hides the
+        // layer past its default z18 or requests tiles that 400/404.
+        maxZoom: CONFIG.maxZoom || 20,
+        maxNativeZoom: bm.maxNativeZoom,
+        subdomains: bm.subdomains || "abc",
+        attribution: bm.attribution
+      });
+    }
+
+    basemapLayers[key].addTo(map);
+    basemapLayers[key].bringToBack();
+    currentBasemap = key;
+
+    // Fatter white outlines so markers hold up over aerial imagery.
+    map.getContainer().classList.toggle("basemap-dark", !!bm.dark);
+
+    var rows = el("basemap-rows");
+    Array.prototype.forEach.call(rows.children, function (btn) {
+      var on = btn.getAttribute("data-key") === key;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+
+    writeBasemapPref(key);
+  }
+
+  function renderBasemapSwitch() {
+    var rows = el("basemap-rows");
+    rows.textContent = "";
+
+    (CONFIG.basemaps || []).forEach(function (bm) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "basemap-btn";
+      btn.setAttribute("data-key", bm.key);
+      btn.setAttribute("aria-pressed", "false");
+      btn.textContent = bm.label;
+      btn.onclick = function () { selectBasemap(bm.key); };
+      rows.appendChild(btn);
+    });
+
+    el("legend").hidden = false;
+  }
+
   function renderLegend() {
     var rows = el("legend-rows");
     rows.textContent = "";
@@ -603,7 +680,7 @@
       rows.appendChild(label);
     });
 
-    el("legend").hidden = false;
+    el("legend-accounts").hidden = false;
   }
 
   function fitToMarkers() {
@@ -627,16 +704,19 @@
   /* ----------------------------------------------------------------- boot */
 
   function initMap() {
-    map = L.map("map", { zoomControl: true }).setView(CONFIG.defaultCenter, CONFIG.defaultZoom);
+    map = L.map("map", { zoomControl: true, maxZoom: CONFIG.maxZoom || 20 })
+      .setView(CONFIG.defaultCenter, CONFIG.defaultZoom);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 20,
-      subdomains: "abcd",
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
-        '&copy; <a href="https://carto.com/attributions">CARTO</a> ' +
-        '| Imagery &copy; <a href="https://www.mapillary.com/">Mapillary</a> contributors'
-    }).addTo(map);
+    // Pinned separately from the basemap credit, which swaps with the layer.
+    map.attributionControl.addAttribution(
+      'Imagery &copy; <a href="https://www.mapillary.com/">Mapillary</a> contributors');
+
+    renderBasemapSwitch();
+
+    var first = basemapByKey(readBasemapPref()) ||
+                basemapByKey(CONFIG.defaultBasemap) ||
+                (CONFIG.basemaps || [])[0];
+    if (first) { selectBasemap(first.key); }
 
     map.on("click", closePanel);
 

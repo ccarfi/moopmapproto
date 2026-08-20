@@ -76,6 +76,51 @@ html, body {
   text-overflow: ellipsis;
 }
 
+.legend-section {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+
+#legend-accounts[hidden] + .legend-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.basemap-switch {
+  display: flex;
+  gap: 4px;
+}
+
+.basemap-btn {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.basemap-btn:hover { background: #f9fafb; color: var(--fg); }
+
+.basemap-btn.is-active {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: #fff;
+}
+
+.basemap-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+/* Aerial imagery is busy — thicken the white outlines so markers stay legible. */
+.basemap-dark path.leaflet-interactive { stroke-width: 2.5; }
+
+.basemap-dark .cluster { box-shadow: 0 1px 7px rgba(0, 0, 0, .65); }
+
 .legend-count {
   font-variant-numeric: tabular-nums;
   color: var(--muted);

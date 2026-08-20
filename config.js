@@ -31,6 +31,46 @@ const CONFIG = {
   defaultCenter: [37.07, -121.61],
   defaultZoom: 12,
 
+  // Basemaps offered by the switcher, in order. All are key-free.
+  //
+  // maxNativeZoom is the deepest zoom each service actually has tiles for;
+  // Leaflet upscales beyond it rather than showing gaps. These are measured,
+  // not guessed: OSM returns HTTP 400 above z19, and USGS imagery (not used
+  // here) 404s above z16, which is why Esri is the satellite source.
+  basemaps: [
+    {
+      key: "light",
+      label: "Light",
+      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      subdomains: "abcd",
+      maxNativeZoom: 20,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+        'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    },
+    {
+      key: "streets",
+      label: "Streets",
+      url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      maxNativeZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    },
+    {
+      key: "satellite",
+      label: "Satellite",
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      maxNativeZoom: 21,
+      dark: true,        // brightens the marker outlines against imagery
+      attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Source: Esri, ' +
+        'Maxar, Earthstar Geographics, and the GIS User Community'
+    }
+  ],
+
+  // Which basemap to start on. Overridden by the last one you picked.
+  defaultBasemap: "light",
+
+  // Deepest zoom the map allows, across all basemaps.
+  maxZoom: 20,
+
   // Max pages of results to follow per account before giving up.
   maxPages: 20
 };

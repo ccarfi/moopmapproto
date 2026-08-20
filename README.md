@@ -114,14 +114,39 @@ Other notes:
 - `captured_at` is epoch milliseconds UTC; the panel renders it in
   `America/Los_Angeles`.
 
-## Basemap
+## Basemaps
 
-CARTO Positron (`light_all`) — key-free, and quieter than standard OSM raster tiles,
-which matters when the whole point is reading coloured dots against it. Attribution
-for OpenStreetMap, CARTO and Mapillary is in the map's attribution control.
+A switcher in the legend card offers three key-free layers. Your choice is
+remembered in `localStorage`.
 
-To switch to standard OSM tiles, change the `L.tileLayer(...)` URL in `app.js` to
-`https://tile.openstreetmap.org/{z}/{x}/{y}.png` and drop the CARTO credit.
+| Layer | Source | Tiles to |
+| --- | --- | --- |
+| **Light** (default) | CARTO Positron | z20 |
+| **Streets** | OpenStreetMap standard | z19 |
+| **Satellite** | Esri World Imagery | z21 |
+
+Light is the default because coloured dots read most easily against it.
+Satellite thickens the marker outlines (`.basemap-dark` in `styles.css`) so they
+stay legible over aerial imagery.
+
+Each layer carries its own attribution, which swaps with the layer; the
+Mapillary credit is pinned separately so it shows on all of them.
+
+**On `maxNativeZoom`.** The map goes to z20, but the services don't all have
+tiles that deep — OSM returns HTTP 400 above z19. Each layer declares the
+deepest zoom it actually has, and Leaflet upscales beyond that instead of
+leaving gaps. Add a layer without it and the top zoom levels break.
+
+**On the satellite source.** Esri World Imagery is key-free and used widely, but
+it is Esri's service under Esri's terms, not an open licence. The public-domain
+alternative is USGS (`https://basemap.nationalmap.gov/arcgis/rest/services/
+USGSImageryOnly/MapServer/tile/{z}/{y}/{x}`), which 404s above z16 — usable with
+`maxNativeZoom: 16`, but visibly soft at the zooms where you're inspecting a
+photo location. Swap it in `CONFIG.basemaps` if you'd rather have the clean
+licence.
+
+To add a layer, append to `CONFIG.basemaps` with a `key`, `label`, `url`,
+`attribution` and `maxNativeZoom`. Set `dark: true` for imagery.
 
 ## Not included
 
