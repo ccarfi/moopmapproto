@@ -1,8 +1,9 @@
 # Mapillary Photo Map — Morgan Hill / Gilroy
 
-A single-page map of my [Mapillary](https://www.mapillary.com/) photo uploads around
-Morgan Hill and Gilroy, CA. Points are colour-coded by the account that uploaded
-them; clicking one opens a panel with the photo and its metadata.
+A single-page map of [Mapillary](https://www.mapillary.com/) photo uploads around
+Morgan Hill and Gilroy, CA, currently showing BWB South Bay. Points are
+colour-coded by account, one legend row each, so further BWB chapters can be
+added alongside; clicking a point opens a panel with the photo and its metadata.
 
 Plain HTML/CSS/JS with Leaflet from a CDN. **No build step** — what's committed is
 what GitHub Pages serves.
@@ -18,15 +19,27 @@ what GitHub Pages serves.
 
 ## Setup
 
-Open `config.js` and fill in two placeholders:
+Open `config.js` and fill in the placeholders:
 
 1. **`mapillaryToken`** — a read-only client token from
    [Mapillary → Developers → Register application](https://www.mapillary.com/dashboard/developers).
    It starts with `MLY|`.
-2. **`accounts[0].organizationId`** — the numeric organization ID for BWB South Bay.
-   You can find it in the URL of the org's Mapillary dashboard page.
+2. **`accounts[].organizationId`** — the numeric organization ID, read from the
+   URL of the org's Mapillary dashboard page.
 
-The second account (`ccarfi`) filters by username and needs no ID.
+### Adding a chapter
+
+`CONFIG.accounts` is a list, one entry per legend row, each with its own colour.
+To map another BWB chapter alongside South Bay, append an entry:
+
+```js
+{ key: "peninsula", label: "BWB Peninsula", organizationId: "…", color: "#2E86AB" }
+```
+
+Everything downstream — the fetch, the legend row, the per-account cluster group
+and its toggle, the panel badge — is driven off that list, so nothing else needs
+touching. An entry can carry `creatorUsername` instead of `organizationId` to map
+one person's uploads rather than an organisation's.
 
 ### The token is public on purpose
 
@@ -70,12 +83,12 @@ from a project subpath (`ccarfi.github.io/moopmapproto/`).
 Mapillary Graph API v4, `GET https://graph.mapillary.com/images` — one request
 per account, no bbox in the query.
 
-**Both accounts are filtered server-side.** The API documents `creator_username`
-("the username who owns and uploaded the image") and `organization_id` as query
-parameters on `/images`, and both work on their own with no bbox. Each returns
-its whole set in a single page, so there's no need for the client-side creator
-filtering fallback. `app.js` still re-checks `creator.username` on the results
-as a cheap safety net, in case the server-side filter is ever silently ignored.
+**Accounts are filtered server-side.** The API documents `organization_id` and
+`creator_username` ("the username who owns and uploaded the image") as query
+parameters on `/images`, and both work on their own with no bbox, each returning
+its whole set in a single page. `app.js` still re-checks `creator.username` on
+the results as a cheap safety net, for entries that filter by creator, in case
+the server-side filter is ever silently ignored.
 
 **The bbox is applied client-side, not in the query.** Mapillary rejects a large
 bbox two different ways, and the Morgan Hill / Gilroy box trips both:

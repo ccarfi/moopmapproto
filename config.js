@@ -13,18 +13,20 @@ const CONFIG = {
   // null to map every image an account has, wherever it is.
   bbox: { west: -121.72, south: 36.95, east: -121.42, north: 37.20 },
 
+  // One entry per account, each its own colour and legend row. Add a BWB
+  // chapter by appending another entry with its organization ID:
+  //
+  //   { key: "peninsula", label: "BWB Peninsula",
+  //     organizationId: "...", color: "#2E86AB" }
+  //
+  // An entry can filter by `creatorUsername` instead of `organizationId` to map
+  // one person's uploads rather than an organisation's.
   accounts: [
     {
       key: "bwb",
       label: "BWB South Bay",
       organizationId: "1605841191131530",
       color: "#E4572E"
-    },
-    {
-      key: "personal",
-      label: "ccarfi",
-      creatorUsername: "ccarfi",
-      color: "#2E86AB"
     }
   ],
 
