@@ -127,6 +127,16 @@ Other notes:
 - `captured_at` is epoch milliseconds UTC; the panel renders it in
   `America/Los_Angeles`.
 
+## Collapsing the controls
+
+The legend card collapses to a small pill in the corner. It starts collapsed on
+phones (under 768px) and expanded on wider screens; the choice is remembered in
+`localStorage` and overrides that default.
+
+The pill keeps the count visible — `234`, or `42 of 234` when the date filter is
+excluding something. That matters because the filter is active on load, so the
+collapsed state has to be able to say the map is showing a subset.
+
 ## Date filter
 
 The legend has a from/to date filter, inclusive on both ends. It opens on the

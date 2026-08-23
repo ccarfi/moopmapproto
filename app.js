@@ -608,6 +608,39 @@
     return markers.length;
   }
 
+  /* ------------------------------------------------------ legend collapse */
+
+  var LEGEND_PREF = "moopmap:legend";
+
+  function setLegendCollapsed(collapsed, remember) {
+    var legend = el("legend");
+    var btn = el("legend-toggle");
+    legend.classList.toggle("is-collapsed", !!collapsed);
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.title = collapsed ? "Show map controls" : "Hide map controls";
+    if (remember) {
+      try { localStorage.setItem(LEGEND_PREF, collapsed ? "collapsed" : "expanded"); }
+      catch (e) { /* private mode */ }
+    }
+  }
+
+  function initLegendToggle() {
+    var saved = null;
+    try { saved = localStorage.getItem(LEGEND_PREF); } catch (e) { /* private mode */ }
+
+    // The panel is a big share of a phone screen, so start out of the way
+    // there; on a desktop there is room and hiding it just costs a click.
+    var startCollapsed = saved
+      ? saved === "collapsed"
+      : window.matchMedia("(max-width: 767px)").matches;
+
+    setLegendCollapsed(startCollapsed, false);
+
+    el("legend-toggle").onclick = function () {
+      setLegendCollapsed(!el("legend").classList.contains("is-collapsed"), true);
+    };
+  }
+
   /* --------------------------------------------------------------- basemaps */
 
   var BASEMAP_PREF = "moopmap:basemap";
@@ -693,6 +726,19 @@
 
   function updateCounts() {
     var b = dateBounds();
+    var allShown = 0, allTotal = 0;
+
+    CONFIG.accounts.forEach(function (account) {
+      allShown += shownCounts[account.key] || 0;
+      allTotal += counts[account.key] || 0;
+    });
+
+    // Collapsed, this line is the only count on screen — and with the filter
+    // defaulting to a year it needs to say when it is hiding something.
+    el("legend-total").textContent = allTotal === 0
+      ? ""
+      : (allShown === allTotal ? String(allTotal) : allShown + " of " + allTotal);
+
     CONFIG.accounts.forEach(function (account) {
       var row = document.querySelector('.legend-count[data-key="' + account.key + '"]');
       if (!row) { return; }
@@ -870,6 +916,7 @@
       'Imagery &copy; <a href="https://www.mapillary.com/">Mapillary</a> contributors');
 
     renderBasemapSwitch();
+    initLegendToggle();
 
     var first = basemapByKey(readBasemapPref()) ||
                 basemapByKey(CONFIG.defaultBasemap) ||

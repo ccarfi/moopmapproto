@@ -41,6 +41,53 @@ html, body {
   font-size: 13px;
 }
 
+.legend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.legend-icon { flex: none; }
+
+.legend-total {
+  flex: 1;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.legend-total:empty { display: none; }
+
+.legend-chev {
+  flex: none;
+  color: var(--muted);
+  transform: rotate(180deg);
+  transition: transform .15s ease;
+}
+
+.legend-toggle:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+/* Collapsed: the card shrinks to just its header button. */
+.legend.is-collapsed .legend-body { display: none; }
+
+.legend.is-collapsed { min-width: 0; }
+
+.legend.is-collapsed .legend-chev { transform: rotate(0deg); }
+
+.legend-body { margin-top: 9px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .legend-chev { transition: none; }
+}
+
 .legend-title {
   font-size: 11px;
   text-transform: uppercase;
@@ -80,6 +127,12 @@ html, body {
   margin-top: 10px;
   padding-top: 9px;
   border-top: 1px solid var(--line);
+}
+
+.legend-body > :first-child.legend-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 #legend-accounts[hidden] + .legend-section {
