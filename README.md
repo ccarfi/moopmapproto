@@ -135,9 +135,13 @@ The legend card collapses to a small pill in the corner. It starts collapsed on
 phones (under 768px) and expanded on wider screens; the choice is remembered in
 `localStorage` and overrides that default.
 
-The pill keeps the count visible — `234`, or `42 of 234` when the date filter is
-excluding something. That matters because the filter is active on load, so the
-collapsed state has to be able to say the map is showing a subset.
+Collapsed, the pill is just the icon and a chevron — no count. Counts live on
+the chapter rows, labelled (`234 images`, or `42 of 234 images` while the date
+filter is excluding something), because an unlabelled number reads as noise.
+
+The tradeoff: a collapsed panel gives no hint that the date filter is narrowing
+what's on the map. That's tolerable because the default range covers everything,
+so the only way to be filtered *and* collapsed is to have narrowed it yourself.
 
 ## Date filter
 

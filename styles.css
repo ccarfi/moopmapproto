@@ -57,14 +57,8 @@ html, body {
 
 .legend-icon { flex: none; }
 
-.legend-total {
-  flex: 1;
-  text-align: left;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.legend-total:empty { display: none; }
+/* No label between them now, so push the chevron to the far side. */
+.legend-toggle > .legend-icon { margin-right: auto; }
 
 .legend-chev {
   flex: none;
@@ -251,6 +245,8 @@ html, body {
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   font-size: 12px;
+  white-space: nowrap;
+  flex: none;
 }
 
 /* ------------------------------------------------------- loading / banner */

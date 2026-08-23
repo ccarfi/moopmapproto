@@ -726,29 +726,18 @@
 
   function updateCounts() {
     var b = dateBounds();
-    var allShown = 0, allTotal = 0;
-
-    CONFIG.accounts.forEach(function (account) {
-      allShown += shownCounts[account.key] || 0;
-      allTotal += counts[account.key] || 0;
-    });
-
-    // Collapsed, this line is the only count on screen — and with the filter
-    // defaulting to a year it needs to say when it is hiding something.
-    el("legend-total").textContent = allTotal === 0
-      ? ""
-      : (allShown === allTotal ? String(allTotal) : allShown + " of " + allTotal);
-
     CONFIG.accounts.forEach(function (account) {
       var row = document.querySelector('.legend-count[data-key="' + account.key + '"]');
       if (!row) { return; }
       var total = counts[account.key] || 0;
       var shown = shownCounts[account.key] || 0;
       // "234 of 234" is noise — only show the fraction when it says something.
-      row.textContent = shown === total ? String(total) : shown + " of " + total;
+      var n = shown === total ? String(total) : shown + " of " + total;
+      var unit = total === 1 && shown === total ? " image" : " images";
+      row.textContent = n + unit;
       row.title = shown === total
-        ? total + " photos"
-        : shown + " of " + total + " photos in range";
+        ? total + " images"
+        : shown + " of " + total + " images in range";
     });
   }
 
