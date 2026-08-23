@@ -88,6 +88,69 @@ html, body {
   border-top: 0;
 }
 
+.date-row {
+  display: flex;
+  gap: 6px;
+}
+
+.date-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.date-field input {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 6px;
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.date-field input:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+.date-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 16px;
+  margin-top: 6px;
+}
+
+.date-note {
+  flex: 1;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.date-note.is-warn { color: #b45309; }
+
+.date-clear {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  flex: none;
+}
+
+.date-clear[hidden] { display: none; }
+
+.date-clear:hover { background: #f9fafb; color: var(--fg); }
+
 .basemap-switch {
   display: flex;
   gap: 4px;

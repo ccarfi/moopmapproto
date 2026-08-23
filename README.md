@@ -127,6 +127,27 @@ Other notes:
 - `captured_at` is epoch milliseconds UTC; the panel renders it in
   `America/Los_Angeles`.
 
+## Date filter
+
+The legend has a from/to date filter, inclusive on both ends. Either side can be
+left blank for an open-ended range. Legend counts switch to `82 of 234` while a
+filter is on, and the pickers are bounded to the range of dates actually present
+in the data.
+
+Dates are compared as `YYYY-MM-DD` calendar strings in `America/Los_Angeles`,
+not as timestamps. That makes "inclusive" exact, avoids DST arithmetic entirely,
+and matches the Pacific dates the detail panel shows — a photo the panel calls
+"Sun, Aug 23" is one an 08-23 filter includes.
+
+A range with no photos in it reports that in the legend rather than firing the
+full-screen empty state, which is reserved for "your bbox or org ID is wrong".
+Images with no `captured_at` are hidden while a filter is active, since they
+can't be shown to fall inside it; the legend notes how many.
+
+Filtering rebuilds each account's cluster group from the markers that match, so
+it composes with the account toggles — hiding and re-showing an account while
+filtered restores the filtered set, not everything.
+
 ## Basemaps
 
 A switcher in the legend card offers three key-free layers. Your choice is

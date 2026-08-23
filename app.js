@@ -21,8 +21,10 @@
   var lightboxImageId = null, lightboxReturnFocus = null;
   var basemapLayers = {};   // basemap.key -> TileLayer
   var currentBasemap = null;
-  var groups = {};   // account.key -> MarkerClusterGroup
-  var counts = {};   // account.key -> number of markers rendered
+  var groups = {};        // account.key -> MarkerClusterGroup
+  var markersOf = {};     // account.key -> all its markers, filtered or not
+  var counts = {};        // account.key -> markers with a usable position
+  var shownCounts = {};   // account.key -> markers passing the date filter
 
   /* ---------------------------------------------------------------- utils */
 
@@ -230,6 +232,24 @@
     var d = new Date(n);
     if (isNaN(d.getTime())) { return null; }
     return DATE_FMT.format(d) + " · " + TIME_FMT.format(d);
+  }
+
+  // The date filter compares calendar dates as YYYY-MM-DD strings rather than
+  // timestamps. That makes "inclusive" exact and sidesteps DST entirely, and it
+  // matches the Pacific dates the panel already shows.
+  var LA_DATE_PARTS = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric", month: "2-digit", day: "2-digit"
+  });
+
+  function laDate(ms) {
+    var n = typeof ms === "string" ? Number(ms) : ms;
+    if (!isNum(n)) { return null; }
+    var d = new Date(n);
+    if (isNaN(d.getTime())) { return null; }
+    var p = {};
+    LA_DATE_PARTS.formatToParts(d).forEach(function (part) { p[part.type] = part.value; });
+    return p.year + "-" + p.month + "-" + p.day;
   }
 
   var CARDINALS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
@@ -536,7 +556,7 @@
       chunkedLoading: true
     });
 
-    var n = 0;
+    var markers = [];
     images.forEach(function (img) {
       var c = coordsOf(img);
       if (!c) { return; }   // no usable position — skip it
@@ -558,14 +578,16 @@
         if (currentImageId === img.id) { return; }
         openPanel(img, account);
       });
-      group.addLayer(marker);
-      n++;
+      marker.__date = laDate(img.captured_at);   // null if the image has no timestamp
+      markers.push(marker);
     });
 
     groups[account.key] = group;
-    counts[account.key] = n;
-    group.addTo(map);
-    return n;
+    markersOf[account.key] = markers;
+    counts[account.key] = markers.length;
+    shownCounts[account.key] = markers.length;
+    group.addTo(map);           // applyDateFilter fills it
+    return markers.length;
   }
 
   /* --------------------------------------------------------------- basemaps */
@@ -643,6 +665,108 @@
     el("legend").hidden = false;
   }
 
+  /* ------------------------------------------------------------ date filter */
+
+  function dateBounds() {
+    var from = el("date-from").value || null;   // "YYYY-MM-DD" or ""
+    var to = el("date-to").value || null;
+    return { from: from, to: to, active: !!(from || to) };
+  }
+
+  function updateCounts() {
+    var b = dateBounds();
+    CONFIG.accounts.forEach(function (account) {
+      var row = document.querySelector('.legend-count[data-key="' + account.key + '"]');
+      if (!row) { return; }
+      var total = counts[account.key] || 0;
+      var shown = shownCounts[account.key] || 0;
+      row.textContent = b.active ? shown + " of " + total : String(total);
+      row.title = b.active ? shown + " of " + total + " photos in range" : total + " photos";
+    });
+  }
+
+  // Rebuilds each cluster group from the markers whose date falls in range.
+  // Undated images are dropped while a filter is on — they can't be shown to
+  // fall inside it.
+  function applyDateFilter() {
+    var b = dateBounds();
+    var note = el("date-note");
+    var invalid = b.from && b.to && b.from > b.to;
+
+    var totalShown = 0, undated = 0;
+
+    CONFIG.accounts.forEach(function (account) {
+      var group = groups[account.key];
+      var all = markersOf[account.key];
+      if (!group || !all) { return; }
+
+      var keep = all;
+      if (b.active && !invalid) {
+        keep = all.filter(function (m) {
+          if (!m.__date) { undated++; return false; }
+          if (b.from && m.__date < b.from) { return false; }
+          if (b.to && m.__date > b.to) { return false; }
+          return true;
+        });
+      } else if (invalid) {
+        keep = [];
+      }
+
+      group.clearLayers();
+      group.addLayers(keep);
+      shownCounts[account.key] = keep.length;
+      totalShown += keep.length;
+    });
+
+    updateCounts();
+    el("date-clear").hidden = !b.active;
+
+    if (invalid) {
+      note.textContent = "“From” is after “To”.";
+      note.classList.add("is-warn");
+    } else if (b.active && totalShown === 0) {
+      // Deliberately not the full-screen overlay: that means "your config is
+      // wrong", not "you picked a quiet week".
+      note.textContent = "No photos in that range.";
+      note.classList.add("is-warn");
+    } else {
+      note.classList.remove("is-warn");
+      note.textContent = b.active
+        ? (undated ? undated + " undated hidden" : "")
+        : availableRangeLabel();
+    }
+  }
+
+  var availableRange = { min: null, max: null };
+
+  function availableRangeLabel() {
+    if (!availableRange.min) { return ""; }
+    return availableRange.min === availableRange.max
+      ? availableRange.min
+      : availableRange.min + " to " + availableRange.max;
+  }
+
+  // Bound the pickers to the data we actually have.
+  function initDateRange() {
+    var min = null, max = null;
+    Object.keys(markersOf).forEach(function (k) {
+      markersOf[k].forEach(function (m) {
+        if (!m.__date) { return; }
+        if (!min || m.__date < min) { min = m.__date; }
+        if (!max || m.__date > max) { max = m.__date; }
+      });
+    });
+    availableRange = { min: min, max: max };
+
+    if (min) {
+      ["date-from", "date-to"].forEach(function (id) {
+        el(id).min = min;
+        el(id).max = max;
+      });
+      el("legend-dates").hidden = false;
+    }
+  }
+
   function renderLegend() {
     var rows = el("legend-rows");
     rows.textContent = "";
@@ -671,6 +795,7 @@
 
       var count = document.createElement("span");
       count.className = "legend-count";
+      count.setAttribute("data-key", account.key);
       count.textContent = counts[account.key];
 
       label.appendChild(cb);
@@ -776,6 +901,8 @@
     }
 
     renderLegend();
+    initDateRange();
+    applyDateFilter();
     fitToMarkers();
 
     if (total === 0) {
@@ -792,6 +919,14 @@
 
     el("panel-close").onclick = closePanel;
     el("banner-close").onclick = function () { el("banner").hidden = true; };
+    el("date-from").onchange = applyDateFilter;
+    el("date-to").onchange = applyDateFilter;
+    el("date-clear").onclick = function () {
+      el("date-from").value = "";
+      el("date-to").value = "";
+      applyDateFilter();
+    };
+
     el("lightbox-close").onclick = closeLightbox;
 
     // Tell a tap apart from a pan: while zoomed, dragging to scroll ends in a

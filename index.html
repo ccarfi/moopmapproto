@@ -22,6 +22,21 @@
     <div class="legend-title">Accounts</div>
     <div id="legend-rows"></div>
   </div>
+  <div id="legend-dates" class="legend-section" hidden>
+    <div class="legend-title">Dates</div>
+    <div class="date-row">
+      <label class="date-field">From
+        <input type="date" id="date-from">
+      </label>
+      <label class="date-field">To
+        <input type="date" id="date-to">
+      </label>
+    </div>
+    <div class="date-foot">
+      <span id="date-note" class="date-note"></span>
+      <button type="button" id="date-clear" class="date-clear" hidden>Clear</button>
+    </div>
+  </div>
   <div id="legend-basemaps" class="legend-section">
     <div class="legend-title">Basemap</div>
     <div id="basemap-rows" class="basemap-switch" role="group" aria-label="Basemap"></div>
