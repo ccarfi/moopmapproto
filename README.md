@@ -29,7 +29,9 @@ Open `config.js` and fill in the placeholders:
 
 ### Adding a chapter
 
-`CONFIG.accounts` is a list, one entry per legend row, each with its own colour.
+`CONFIG.accounts` is the chapter list — one entry per legend row, each with its own
+colour. (The legend calls this section **Chapters**; the config key is still
+`accounts` internally.)
 To map another BWB chapter alongside South Bay, append an entry:
 
 ```js
@@ -83,7 +85,7 @@ from a project subpath (`ccarfi.github.io/moopmapproto/`).
 Mapillary Graph API v4, `GET https://graph.mapillary.com/images` — one request
 per account, no bbox in the query.
 
-**Accounts are filtered server-side.** The API documents `organization_id` and
+**Chapters are filtered server-side.** The API documents `organization_id` and
 `creator_username` ("the username who owns and uploaded the image") as query
 parameters on `/images`, and both work on their own with no bbox, each returning
 its whole set in a single page. `app.js` still re-checks `creator.username` on
