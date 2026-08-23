@@ -70,6 +70,10 @@ const CONFIG = {
   // Which basemap to start on. Overridden by the last one you picked.
   defaultBasemap: "light",
 
+  // The date filter opens on the last N days, ending today. Set to 0 or null to
+  // start unfiltered with empty pickers.
+  defaultDateRangeDays: 365,
+
   // Deepest zoom the map allows, across all basemaps.
   maxZoom: 20,
 

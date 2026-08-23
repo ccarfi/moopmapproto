@@ -129,10 +129,23 @@ Other notes:
 
 ## Date filter
 
-The legend has a from/to date filter, inclusive on both ends. Either side can be
-left blank for an open-ended range. Legend counts switch to `82 of 234` while a
-filter is on, and the pickers are bounded to the range of dates actually present
-in the data.
+The legend has a from/to date filter, inclusive on both ends. It opens on the
+last `CONFIG.defaultDateRangeDays` days ending today (365 by default) with both
+pickers populated, rather than showing an empty `mm/dd/yyyy`. **Amounts to the
+map being filtered on load** — which is honest, since the pickers state the
+range being shown. Set `defaultDateRangeDays` to 0 to start unfiltered with
+empty pickers instead; either side can also be cleared by hand for an open-ended
+range.
+
+**Reset** restores the default window. It appears only once the range differs
+from that default.
+
+Legend counts read `82 of 234` when the filter is actually excluding something,
+and plain `234` when it isn't — so the default window doesn't render a
+pointless `234 of 234`. The note under the pickers always reports the span of
+dates the data actually covers, which is what explains a small count over a wide
+default range. Picker bounds span both the data and the default window, since
+otherwise the browser flags the defaulted values as out of range.
 
 Dates are compared as `YYYY-MM-DD` calendar strings in `America/Los_Angeles`,
 not as timestamps. That makes "inclusive" exact, avoids DST arithmetic entirely,

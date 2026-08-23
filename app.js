@@ -252,6 +252,24 @@
     return p.year + "-" + p.month + "-" + p.day;
   }
 
+  function laToday() { return laDate(Date.now()); }
+
+  // Pure calendar arithmetic on a YYYY-MM-DD string, so shifting by days can't
+  // drift across a DST boundary the way subtracting milliseconds can.
+  function shiftDate(dateStr, days) {
+    var p = dateStr.split("-").map(Number);
+    var d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function defaultRange() {
+    var days = CONFIG.defaultDateRangeDays;
+    if (!days || days <= 0) { return { from: "", to: "" }; }
+    var today = laToday();
+    return { from: shiftDate(today, -days), to: today };
+  }
+
   var CARDINALS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
                    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 
@@ -680,8 +698,11 @@
       if (!row) { return; }
       var total = counts[account.key] || 0;
       var shown = shownCounts[account.key] || 0;
-      row.textContent = b.active ? shown + " of " + total : String(total);
-      row.title = b.active ? shown + " of " + total + " photos in range" : total + " photos";
+      // "234 of 234" is noise — only show the fraction when it says something.
+      row.textContent = shown === total ? String(total) : shown + " of " + total;
+      row.title = shown === total
+        ? total + " photos"
+        : shown + " of " + total + " photos in range";
     });
   }
 
@@ -719,7 +740,8 @@
     });
 
     updateCounts();
-    el("date-clear").hidden = !b.active;
+    var def = defaultRange();
+    el("date-reset").hidden = (b.from || "") === def.from && (b.to || "") === def.to;
 
     if (invalid) {
       note.textContent = "“From” is after “To”.";
@@ -731,9 +753,12 @@
       note.classList.add("is-warn");
     } else {
       note.classList.remove("is-warn");
-      note.textContent = b.active
-        ? (undated ? undated + " undated hidden" : "")
-        : availableRangeLabel();
+      // Always show what the data actually spans — with the pickers defaulted
+      // to a year, this is what explains a small count over a wide range.
+      var bits = [];
+      if (availableRangeLabel()) { bits.push("Photos " + availableRangeLabel()); }
+      if (undated) { bits.push(undated + " undated hidden"); }
+      note.textContent = bits.join(" · ");
     }
   }
 
@@ -758,13 +783,21 @@
     });
     availableRange = { min: min, max: max };
 
-    if (min) {
-      ["date-from", "date-to"].forEach(function (id) {
-        el(id).min = min;
-        el(id).max = max;
-      });
-      el("legend-dates").hidden = false;
-    }
+    var def = defaultRange();
+
+    // Bounds have to span both the data and the default window, or the browser
+    // marks the defaulted values out of range.
+    var lo = [min, def.from].filter(Boolean).sort()[0];
+    var hi = [max, def.to, laToday()].filter(Boolean).sort().pop();
+
+    ["date-from", "date-to"].forEach(function (id) {
+      if (lo) { el(id).min = lo; }
+      if (hi) { el(id).max = hi; }
+    });
+
+    el("date-from").value = def.from;
+    el("date-to").value = def.to;
+    el("legend-dates").hidden = false;
   }
 
   function renderLegend() {
@@ -921,9 +954,10 @@
     el("banner-close").onclick = function () { el("banner").hidden = true; };
     el("date-from").onchange = applyDateFilter;
     el("date-to").onchange = applyDateFilter;
-    el("date-clear").onclick = function () {
-      el("date-from").value = "";
-      el("date-to").value = "";
+    el("date-reset").onclick = function () {
+      var def = defaultRange();
+      el("date-from").value = def.from;
+      el("date-to").value = def.to;
       applyDateFilter();
     };
 
