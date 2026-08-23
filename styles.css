@@ -95,6 +95,11 @@ html, body {
 
 .date-field {
   flex: 1;
+  /* Without this the field inherits min-width:auto and refuses to shrink below
+     the date control's intrinsic width. WebKit reserves a lot of room for a
+     native date picker, so on iPhone the value overflows its box and pushes
+     the whole legend card wide. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -113,7 +118,12 @@ html, body {
   padding: 4px 6px;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   cursor: pointer;
+  /* Stops WebKit applying its own chrome and intrinsic sizing to the control. */
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
 }
 
 .date-field input:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
@@ -585,4 +595,13 @@ body.lightbox-open { overflow: hidden; }
   }
 
   .row { grid-template-columns: 84px 1fr; }
+}
+
+@media (max-width: 520px) {
+  /* Two native date controls side by side don't fit a phone-width legend card
+     once WebKit has had its say, so stack them and let each have the full
+     width. Costs ~30px of height and removes the overflow entirely. */
+  .date-row { flex-direction: column; gap: 5px; }
+
+  .legend { max-width: calc(100vw - 16px); }
 }
