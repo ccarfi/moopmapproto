@@ -15,6 +15,9 @@ what GitHub Pages serves.
 | `index.html` | Entry point. Loads Leaflet + markercluster from unpkg, then `config.js` and `app.js`. |
 | `config.js` | Everything you'd want to change: token, bbox, accounts, colours. |
 | `app.js` | Fetching, map, legend, detail panel. |
+| `report.html` / `report.js` | "Tell us about MOOP" photo submission form. |
+| `apps-script/Code.gs` | Server side of the form — paste into a Google Apps Script Web App. |
+| `RUNBOOK.md` | Getting submitted photos from Drive into Mapillary. |
 | `styles.css` | All styling. |
 
 ## Setup
@@ -128,6 +131,61 @@ Other notes:
   everything.
 - `captured_at` is epoch milliseconds UTC; the panel renders it in
   `America/Los_Angeles`.
+
+## Reporting MOOP
+
+`report.html` lets a volunteer send photos from their phone without installing
+or learning Mapillary. It posts to a Google Apps Script Web App, which files the
+photo in Drive and logs a row in a Sheet; `RUNBOOK.md` covers the batch upload
+to Mapillary from there. Once uploaded, photos appear on the map with **no code
+change** — they arrive through the same `organization_id` query that already
+drives it.
+
+### Setting it up
+
+1. Create a Drive folder (e.g. "MoopMap Uploads") and a Google Sheet.
+2. [script.google.com](https://script.google.com) → new project → paste in
+   `apps-script/Code.gs`.
+3. Fill in `ROOT_FOLDER_ID` and `SHEET_ID` at the top of that file.
+4. Deploy → New deployment → **Web app**, executing as *you*, access *Anyone*.
+5. Paste the `/exec` URL into `CONFIG.upload.endpoint` in `config.js`.
+
+Until step 5, the form says it isn't set up yet rather than failing on submit.
+
+**Re-deploy a new version after every edit to `Code.gs`.** The `/exec` URL keeps
+serving the previous version until you do — it's the most common reason a change
+appears not to take effect.
+
+### Things that are load-bearing
+
+- **The chapter picker sets `bwb_chapter`,** which decides the Mapillary
+  organization a photo is eventually uploaded under. `CONFIG.accounts[].key` is
+  the value recorded, so those keys must stay stable once reports exist.
+- **Photos are never re-encoded.** No canvas, no resizing — drawing an image to
+  a canvas strips EXIF, and EXIF is where the photo's GPS and capture time live.
+  The raw `File` bytes are sent as-is.
+- **The device position is a fallback,** not the primary source. `mapillary_tools`
+  prefers the photo's own EXIF; the recorded position exists because iOS share
+  sheets strip it often enough to matter.
+- **Requests are `text/plain`.** Apps Script Web Apps redirect in a way that
+  fails CORS preflight, so a `text/plain` body — a "simple request" — is what
+  makes this work at all. Sending `application/json` will not.
+- **One request per photo, in sequence.** Base64 inflates payloads by about a
+  third, and a mid-batch failure then only costs that one photo.
+- **`CONFIG.upload.token` is not security.** It ships in client-side JS in a
+  public repo. It deters drive-by bots; the endpoint is open by design until
+  Google auth lands.
+
+### Out-of-area check
+
+Each chapter has a `bounds` box. If the submitted position falls outside the
+selected chapter's box, the form warns but still lets it through — a bad bounds
+guess shouldn't be able to block a legitimate report. The **hard** gate is in
+`RUNBOOK.md`, before upload, where a mistake is still cheap to fix.
+
+`SOUTH_BAY_BOUNDS` in `config.js` is one object referenced by both `CONFIG.bbox`
+and the chapter's `bounds`, so the map's area of interest and the form's check
+cannot drift apart.
 
 ## Collapsing the controls
 

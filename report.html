@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tell us about MOOP</title>
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='12' cy='13' r='6' fill='%23E4572E'/%3E%3Ccircle cx='21' cy='21' r='6' fill='%232E86AB'/%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="report-page">
+
+<header class="report-header">
+  <a class="report-back" href="./">&larr; Map</a>
+  <h1>Tell us about MOOP</h1>
+</header>
+
+<main class="report-main">
+
+  <div id="setup-warning" class="notice is-warn" hidden>
+    <strong>Not set up yet.</strong>
+    <span>The upload endpoint hasn't been configured, so submissions can't be
+    sent. See <code>CONFIG.upload.endpoint</code> in <code>config.js</code>.</span>
+  </div>
+
+  <form id="report-form" novalidate>
+
+    <!-- Honeypot: real people never see or fill this. -->
+    <div class="hp" aria-hidden="true">
+      <label>Leave this empty
+        <input type="text" id="hp-field" name="website" tabindex="-1" autocomplete="off">
+      </label>
+    </div>
+
+    <section class="field">
+      <label class="field-label" for="chapter">Chapter</label>
+      <select id="chapter" class="field-input"></select>
+      <p class="field-hint">Which BWB chapter is this for.</p>
+    </section>
+
+    <section class="field">
+      <label class="field-label" for="photos">Photos</label>
+      <input type="file" id="photos" class="field-input" accept="image/*" multiple>
+      <p class="field-hint" id="photos-hint">
+        Take a new photo or pick existing ones. Please don't crop or edit them
+        first &mdash; the original file carries the location and time.
+      </p>
+      <ul id="file-list" class="file-list"></ul>
+    </section>
+
+    <section class="field">
+      <span class="field-label">Location</span>
+      <div id="mini-map" class="mini-map"></div>
+      <p class="field-hint" id="loc-status">Getting your location&hellip;</p>
+      <button type="button" id="loc-btn" class="btn btn-secondary">Use my location</button>
+      <div id="geo-warn" class="notice is-warn" hidden></div>
+    </section>
+
+    <button type="submit" id="submit-btn" class="btn btn-primary">Send photos</button>
+    <p class="field-hint" id="submit-note"></p>
+
+  </form>
+
+  <div id="result" class="result" hidden></div>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script src="report.js"></script>
+</body>
+</html>
