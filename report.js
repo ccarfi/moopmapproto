@@ -73,12 +73,11 @@
 
     map = L.map("mini-map", { zoomControl: true }).setView(centre, zoom);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    // Was CARTO Positron; CARTO now stamps "API KEY REQUIRED" across its tiles.
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 20,
-      maxNativeZoom: 20,
-      subdomains: "abcd",
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
-        'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      maxNativeZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     // Tapping the map is the fallback for "the GPS put me on the wrong side of

@@ -237,18 +237,27 @@ filtered restores the filtered set, not everything.
 
 ## Basemaps
 
-A switcher in the legend card offers three key-free layers. Your choice is
+A switcher in the legend card offers two key-free layers. Your choice is
 remembered in `localStorage`.
 
 | Layer | Source | Tiles to |
 | --- | --- | --- |
-| **Light** (default) | CARTO Positron | z20 |
-| **Streets** | OpenStreetMap standard | z19 |
+| **Streets** (default) | OpenStreetMap standard | z19 |
 | **Satellite** | Esri World Imagery | z21 |
 
-Light is the default because coloured dots read most easily against it.
 Satellite thickens the marker outlines (`.basemap-dark` in `styles.css`) so they
 stay legible over aerial imagery.
+
+**CARTO Positron was removed.** It shipped as "Light" and was the default until
+CARTO started requiring an API key. The failure mode is worth remembering: the
+tiles still return **HTTP 200 with a normal-sized PNG**, but the image itself is
+stamped "API KEY REQUIRED". No status code, content type or byte count reveals
+that — only rendering it does, which is why the first check of this said CARTO
+was fine. A stored `moopmap:basemap` preference naming `light` falls back to the
+default, so nobody is stranded on a layer that no longer exists.
+
+The report form's mini-map used the same CARTO tiles and was switched to OSM at
+the same time.
 
 Each layer carries its own attribution, which swaps with the layer; the
 Mapillary credit is pinned separately so it shows on all of them.

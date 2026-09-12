@@ -71,16 +71,12 @@ const CONFIG = {
   // Leaflet upscales beyond it rather than showing gaps. These are measured,
   // not guessed: OSM returns HTTP 400 above z19, and USGS imagery (not used
   // here) 404s above z16, which is why Esri is the satellite source.
+  //
+  // CARTO Positron used to be here as "Light", and was the default. CARTO now
+  // requires an API key: the tiles still return HTTP 200 as a normal-sized PNG,
+  // but the image itself is stamped "API KEY REQUIRED". Nothing in a status
+  // code or a byte count catches that — only looking at it does.
   basemaps: [
-    {
-      key: "light",
-      label: "Light",
-      url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      subdomains: "abcd",
-      maxNativeZoom: 20,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
-        'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-    },
     {
       key: "streets",
       label: "Streets",
@@ -100,7 +96,8 @@ const CONFIG = {
   ],
 
   // Which basemap to start on. Overridden by the last one you picked.
-  defaultBasemap: "light",
+  // A stored preference naming a basemap that no longer exists falls back here.
+  defaultBasemap: "streets",
 
   // The date filter opens on the last N days, ending today. Set to 0 or null to
   // start unfiltered with empty pickers.
