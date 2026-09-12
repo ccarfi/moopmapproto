@@ -94,11 +94,13 @@ Only `MAPLatitude`, `MAPLongitude` and `MAPCaptureTime` are required by the
 schema, plus `filetype` by the loader.
 
 ```bash
-mapillary_tools upload ./bwb_south_bay/2026-08-23 \
+python3 tools/mly_upload.py upload ./bwb_south_bay/2026-08-23 \
   --desc_path ./desc.json \
   --user_name "<your mapillary username>" \
   --organization_key "1605841191131530"
 ```
+
+(Use the wrapper, not `mapillary_tools` directly — see below.)
 
 ### The mapillary_tools progress bug (0.14.7)
 
@@ -111,24 +113,16 @@ TypeError: '<' not supported between instances of 'NoneType' and 'int'
 
 The upload event payload carries `chunk_size=None`, tqdm rejects it, and the
 exception aborts the run before the sequence is finished. There is no flag to
-turn the progress bar off. Run it through this wrapper instead:
-
-```python
-# mly_upload.py
-import sys, tqdm.std
-_orig = tqdm.std.tqdm.update
-def _safe(self, n=1):
-    return _orig(self, 0 if n is None else n)
-tqdm.std.tqdm.update = _safe
-from mapillary_tools.commands.__main__ import main
-sys.argv = ["mapillary_tools"] + sys.argv[1:]
-sys.exit(main())
-```
+turn the progress bar off, so use **`tools/mly_upload.py`** in this repo — it
+patches the progress bar and passes everything else straight through:
 
 ```bash
-python3 mly_upload.py upload ./bwb_south_bay/2026-08-23 \
+python3 tools/mly_upload.py upload ./bwb_south_bay/2026-08-23 \
   --desc_path desc.json --user_name "<you>" --organization_key "<org id>"
 ```
+
+That file also documents how to tell whether the upstream bug has been fixed,
+so the workaround can be deleted rather than carried forever.
 
 **Ignore the byte counters.** The same malformed payload means the summary
 reports `0 Bytes read` and `0 Bytes uploaded` even on a successful upload. They

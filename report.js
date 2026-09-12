@@ -113,7 +113,7 @@
     var bits = [lat.toFixed(6) + ", " + lng.toFixed(6)];
     if (accuracy) { bits.push("±" + Math.round(accuracy) + " m"); }
     if (source === "user-adjusted") { bits.push("placed by hand"); }
-    el("loc-status").textContent = bits.join(" · ") + ". Drag the pin to correct it.";
+    el("loc-status").textContent = bits.join(" · ");
 
     // A wifi-derived fix indoors can be 50m+ out, which is too coarse to say
     // which patch of ground a photo is of. Say so rather than silently
@@ -121,9 +121,7 @@
     var coarse = el("loc-coarse");
     var limit = (CONFIG.upload && CONFIG.upload.coarseAccuracyM) || 50;
     if (accuracy && accuracy > limit) {
-      coarse.textContent = "That's only accurate to about " + Math.round(accuracy) +
-        " m. If you're outdoors, wait a moment and tap “Use my location” again, " +
-        "or drag the pin to the exact spot.";
+      coarse.textContent = "Rough fix — drag the pin to be exact.";
       coarse.hidden = false;
     } else {
       coarse.hidden = true;
@@ -161,19 +159,17 @@
       help.hidden = true;
       return;
     } else if (geoState === "denied") {
+      // Each of these has to fit one line on a phone, so they say the fix
+      // rather than the reason. "Tap the map" is the fix in every case.
       msg = isBrave
-        ? "Brave is blocking location for this site. Lower the Shields for " +
-          "ccarfi.github.io, or just tap the map to place the pin yourself."
-        : "This browser is blocking location for this site. Allow it in your " +
-          "browser settings, or tap the map to place the pin yourself.";
+        ? "Brave blocks location. Tap the map instead."
+        : "Location blocked. Tap the map instead.";
     } else if (geoState === "timeout") {
-      msg = "Couldn't get a location in time. Try again, or tap the map to " +
-        "place the pin yourself.";
+      msg = "No location yet. Tap the map instead.";
     } else if (geoState === "unavailable") {
-      msg = "This browser can't share a location. Tap the map to place the pin yourself.";
+      msg = "Location unavailable. Tap the map instead.";
     } else {
-      msg = "A location is required. Your photo doesn't carry one — phones strip " +
-        "that out when you pick a file — so we need it from the map.";
+      msg = "Location required — photos don't carry one.";
     }
 
     help.textContent = msg;
@@ -244,8 +240,7 @@
     var ok = inBounds(position, c);
 
     if (ok === false) {
-      warn.textContent = "That location looks outside " + c.label +
-        ". Check the chapter above, or drag the pin. You can still send it.";
+      warn.textContent = "Looks outside " + c.label + " — check the chapter.";
       warn.hidden = false;
     } else {
       warn.hidden = true;
@@ -452,10 +447,9 @@
     btn.disabled = n === 0 || !position || submitting;
 
     if (n === 0) {
-      note.textContent = "Choose at least one photo.";
+      note.textContent = "Choose a photo.";
     } else if (!position) {
-      note.textContent = "Add a location before sending — tap “Use my location” " +
-        "or tap the map.";
+      note.textContent = "Add a location first.";
     } else {
       note.textContent = "";
     }
@@ -560,8 +554,7 @@
     el("loc-btn").onclick = requestLocation;
     el("report-form").onsubmit = onSubmit;
 
-    el("loc-status").textContent =
-      "Tap “Use my location”, or tap the map to place the pin.";
+    el("loc-status").textContent = "Tap the map to place the pin.";
 
     detectBrave();
     checkGeoPermission();

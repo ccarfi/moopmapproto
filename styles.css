@@ -871,3 +871,22 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 }
 
 .notice { margin-top: 10px; margin-bottom: 0; }
+
+/* Report form on a phone: keep "Send photo" above the fold.
+ *
+ * Must live at the end of the file. The base .mini-map rule is declared later
+ * than the earlier @media block, and at equal specificity the last declaration
+ * wins — so an override placed further up is silently ignored.
+ *
+ * Shortening every line of microcopy to one line was not enough on its own;
+ * the map is the single biggest consumer of vertical space here, and 150px is
+ * still ample for confirming or dragging a pin. */
+@media (max-width: 520px) {
+  .mini-map { height: 150px; }
+
+  .report-header { padding-top: 12px; }
+
+  .field { padding: 12px; margin-bottom: 10px; }
+
+  .report-main { padding-top: 10px; }
+}

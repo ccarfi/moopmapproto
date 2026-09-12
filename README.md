@@ -18,6 +18,7 @@ what GitHub Pages serves.
 | `report.html` / `report.js` | "Tell us about MOOP" photo submission form. |
 | `apps-script/Code.gs` | Server side of the form — paste into a Google Apps Script Web App. |
 | `RUNBOOK.md` | Getting submitted photos from Drive into Mapillary. |
+| `tools/mly_upload.py` | Wrapper around `mapillary_tools`, which crashes mid-upload without it. |
 | `styles.css` | All styling. |
 
 ## Setup
