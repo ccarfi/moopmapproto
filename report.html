@@ -41,10 +41,11 @@
     </section>
 
     <section class="field">
-      <label class="field-label" for="photos">Photos</label>
-      <input type="file" id="photos" class="field-input" accept="image/*" multiple>
+      <label class="field-label" for="photos">Photo</label>
+      <input type="file" id="photos" class="field-input" accept="image/*">
       <p class="field-hint" id="photos-hint">
-        Take a new photo or pick existing ones. Please don't crop or edit them first.
+        One photo per report, so each gets its own location. Take a new photo or
+        pick an existing one &mdash; please don't crop or edit it first.
       </p>
       <ul id="file-list" class="file-list"></ul>
     </section>
@@ -59,7 +60,7 @@
       <div id="geo-warn" class="notice is-warn" hidden></div>
     </section>
 
-    <button type="submit" id="submit-btn" class="btn btn-primary">Send photos</button>
+    <button type="submit" id="submit-btn" class="btn btn-primary">Send photo</button>
     <p class="field-hint" id="submit-note"></p>
 
   </form>

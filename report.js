@@ -272,6 +272,7 @@
     var picked = Array.prototype.slice.call(el("photos").files || []);
     files = [];
 
+    // maxPhotos is 1; slice keeps this honest if that ever changes.
     picked.slice(0, maxPhotos()).forEach(function (f) {
       files.push({
         file: f,
@@ -279,11 +280,6 @@
         error: f.size > maxBytes() ? "Too large (" + humanSize(f.size) + ")" : null
       });
     });
-
-    if (picked.length > maxPhotos()) {
-      el("photos-hint").textContent =
-        "Only the first " + maxPhotos() + " photos will be sent.";
-    }
 
     renderFiles();
     updateSubmitNote();
@@ -477,26 +473,22 @@
     box.textContent = "";
 
     var h = document.createElement("strong");
-    h.textContent = failed
-      ? sent + " of " + (sent + failed) + " photos sent"
-      : (sent === 1 ? "Photo sent" : sent + " photos sent");
+    h.textContent = "Photo sent";
     box.appendChild(h);
 
     var p = document.createElement("p");
     // Deliberately not "added to the map" — these are batch-uploaded to
     // Mapillary and then have to be processed, which takes days, not seconds.
-    p.textContent = failed
-      ? "Retry the ones that failed above. Sent photos will appear on the map " +
-        "once they've been uploaded to Mapillary and processed, usually within a few days."
-      : "Thanks. They'll appear on the map once they've been uploaded to " +
-        "Mapillary and processed, usually within a few days — not straight away.";
+    p.textContent =
+      "Thanks. It'll appear on the map once it's been uploaded to Mapillary and " +
+      "processed, usually within a few days — not straight away.";
     box.appendChild(p);
 
     if (!failed) {
       var again = document.createElement("button");
       again.type = "button";
       again.className = "btn btn-secondary";
-      again.textContent = "Send more";
+      again.textContent = "Send another photo";
       again.onclick = resetForm;
       box.appendChild(again);
     }
@@ -505,14 +497,27 @@
   function resetForm() {
     files = [];
     submissionId = null;
-    // Keep the position: the next report is almost always from the same spot.
     el("photos").value = "";
     el("result").hidden = true;
-    el("photos-hint").textContent =
-      "Take a new photo or pick existing ones. Please don't crop or edit them first.";
     renderFiles();
+
+    // Drop the previous report's position and take a fresh reading. Carrying it
+    // over would reintroduce exactly the bug that made this form one-photo-only:
+    // a pin that belongs to the last photo silently attached to the next one,
+    // taken somewhere else.
+    position = null;
+    if (marker) { map.removeLayer(marker); marker = null; }
+    el("loc-coarse").hidden = true;
+    el("geo-warn").hidden = true;
+    el("loc-status").textContent = "";
+
     updateSubmitNote();
+    renderLocationHelp();
     window.scrollTo(0, 0);
+
+    if (navigator.geolocation && geoState !== "denied" && geoState !== "unavailable") {
+      requestLocation();
+    }
   }
 
   async function onSubmit(e) {

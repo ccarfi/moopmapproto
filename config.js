@@ -58,7 +58,11 @@ const CONFIG = {
     // Google auth.
     token: "moopmap-v1",
 
-    maxPhotos: 10,
+    // One photo per report. The form records a single device position and
+    // applies it to everything in the submission; with two photos taken from
+    // different spots that pin is wrong for at least one of them. Splitting
+    // them into separate reports is what keeps each position honest.
+    maxPhotos: 1,
     maxFileMB: 15,
 
     // Warn when the device fix is looser than this (metres). A wifi-derived

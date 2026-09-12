@@ -179,8 +179,11 @@ appears not to take effect.
 - **Requests are `text/plain`.** Apps Script Web Apps redirect in a way that
   fails CORS preflight, so a `text/plain` body — a "simple request" — is what
   makes this work at all. Sending `application/json` will not.
-- **One request per photo, in sequence.** Base64 inflates payloads by about a
-  third, and a mid-batch failure then only costs that one photo.
+- **One photo per report.** The form captures a single device position and
+  applies it to the submission, so two photos taken from different spots would
+  share a pin that is wrong for at least one. Separate reports keep each
+  position honest. Enforced client-side and in `Code.gs`, and the position is
+  cleared and re-read after each send so a stale pin can't carry over.
 - **`CONFIG.upload.token` is not security.** It ships in client-side JS in a
   public repo. It deters drive-by bots; the endpoint is open by design until
   Google auth lands.

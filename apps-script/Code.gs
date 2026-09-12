@@ -37,7 +37,11 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 var CHAPTERS = ['bwb_south_bay'];
 
 var MAX_BYTES  = 15 * 1024 * 1024;
-var MAX_PHOTOS = 10;
+// One photo per submission. The form sends a single device position and it
+// applies to the whole submission, so a second photo taken somewhere else would
+// carry a pin that is provably wrong. Enforced here too, because the client can
+// be tampered with.
+var MAX_PHOTOS = 1;
 
 var HEADERS = [
   'submission_id', 'bwb_chapter', 'received_at_utc', 'file_names', 'photo_count',
