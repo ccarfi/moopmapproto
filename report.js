@@ -154,13 +154,13 @@
 
     if (position) { help.hidden = true; return; }
 
+    // Only speak up when something has actually gone wrong. "You haven't set a
+    // location yet" is already said three other ways — the required badge, the
+    // status line under the map, and the note by the button — so saying it
+    // again here was just noise.
     var msg;
-    if (geoState === "asking") {
-      help.hidden = true;
-      return;
-    } else if (geoState === "denied") {
-      // Each of these has to fit one line on a phone, so they say the fix
-      // rather than the reason. "Tap the map" is the fix in every case.
+    if (geoState === "denied") {
+      // One line on a phone, so these give the fix rather than the reason.
       msg = isBrave
         ? "Brave blocks location. Tap the map instead."
         : "Location blocked. Tap the map instead.";
@@ -169,7 +169,8 @@
     } else if (geoState === "unavailable") {
       msg = "Location unavailable. Tap the map instead.";
     } else {
-      msg = "Location required — photos don't carry one.";
+      help.hidden = true;
+      return;
     }
 
     help.textContent = msg;
