@@ -855,3 +855,19 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 }
 
 .report-link:hover { opacity: .88; }
+
+.field-required {
+  font-style: normal;
+  color: #b45309;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 11px;
+}
+
+.notice.is-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a5f;
+}
+
+.notice { margin-top: 10px; margin-bottom: 0; }

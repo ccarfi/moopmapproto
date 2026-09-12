@@ -15,6 +15,8 @@
   var position = null;      // { lat, lng, accuracy, source }
   var files = [];           // { file, status, error, li }
   var submitting = false;
+  var geoState = "idle";    // idle | asking | ok | denied | timeout | unavailable
+  var isBrave = false;
 
   function el(id) { return document.getElementById(id); }
 
@@ -110,37 +112,124 @@
 
     var bits = [lat.toFixed(6) + ", " + lng.toFixed(6)];
     if (accuracy) { bits.push("±" + Math.round(accuracy) + " m"); }
-    if (source === "user-adjusted") { bits.push("adjusted by hand"); }
+    if (source === "user-adjusted") { bits.push("placed by hand"); }
     el("loc-status").textContent = bits.join(" · ") + ". Drag the pin to correct it.";
 
+    // A wifi-derived fix indoors can be 50m+ out, which is too coarse to say
+    // which patch of ground a photo is of. Say so rather than silently
+    // recording it.
+    var coarse = el("loc-coarse");
+    var limit = (CONFIG.upload && CONFIG.upload.coarseAccuracyM) || 50;
+    if (accuracy && accuracy > limit) {
+      coarse.textContent = "That's only accurate to about " + Math.round(accuracy) +
+        " m. If you're outdoors, wait a moment and tap “Use my location” again, " +
+        "or drag the pin to the exact spot.";
+      coarse.hidden = false;
+    } else {
+      coarse.hidden = true;
+    }
+
+    renderLocationHelp();
     checkBounds();
     updateSubmitNote();
   }
 
-  function requestLocation() {
-    if (!navigator.geolocation) {
-      el("loc-status").textContent =
-        "This browser can't share a location. Tap the map to drop a pin instead.";
+  // Brave blocks geolocation without prompting, so its users see no permission
+  // dialog and no error — the request simply never resolves. Worth naming
+  // explicitly, because "allow location" is useless advice there.
+  function detectBrave() {
+    try {
+      if (navigator.brave && typeof navigator.brave.isBrave === "function") {
+        navigator.brave.isBrave().then(function (v) { isBrave = !!v; });
+      }
+    } catch (e) { /* not Brave */ }
+  }
+
+  function setGeoState(state) {
+    geoState = state;
+    renderLocationHelp();
+    updateSubmitNote();
+  }
+
+  function renderLocationHelp() {
+    var help = el("loc-help");
+
+    if (position) { help.hidden = true; return; }
+
+    var msg;
+    if (geoState === "asking") {
+      help.hidden = true;
       return;
+    } else if (geoState === "denied") {
+      msg = isBrave
+        ? "Brave is blocking location for this site. Lower the Shields for " +
+          "ccarfi.github.io, or just tap the map to place the pin yourself."
+        : "This browser is blocking location for this site. Allow it in your " +
+          "browser settings, or tap the map to place the pin yourself.";
+    } else if (geoState === "timeout") {
+      msg = "Couldn't get a location in time. Try again, or tap the map to " +
+        "place the pin yourself.";
+    } else if (geoState === "unavailable") {
+      msg = "This browser can't share a location. Tap the map to place the pin yourself.";
+    } else {
+      msg = "A location is required. Your photo doesn't carry one — phones strip " +
+        "that out when you pick a file — so we need it from the map.";
     }
 
+    help.textContent = msg;
+    help.hidden = false;
+  }
+
+  function requestLocation() {
+    if (!navigator.geolocation) { setGeoState("unavailable"); return; }
+
+    setGeoState("asking");
     el("loc-status").textContent = "Getting your location…";
+
+    // Belt and braces: some browsers neither resolve nor reject. Without this
+    // the form would sit on "Getting your location…" forever.
+    var settled = false;
+    var watchdog = setTimeout(function () {
+      if (settled) { return; }
+      settled = true;
+      el("loc-status").textContent = "";
+      setGeoState("timeout");
+    }, 20000);
+
+    function done(state) {
+      if (settled) { return; }
+      settled = true;
+      clearTimeout(watchdog);
+      if (state) { setGeoState(state); }
+    }
 
     navigator.geolocation.getCurrentPosition(
       function (pos) {
+        done(null);
         setPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "device");
+        setGeoState("ok");
       },
       function (err) {
-        // Not fatal: the photo's own EXIF may carry a position, and the pin can
-        // be dropped by hand.
-        el("loc-status").textContent = err.code === err.PERMISSION_DENIED
-          ? "Location permission denied. Tap the map to drop a pin, or send anyway — "
-            + "your photo may already carry its own location."
-          : "Couldn't get a location. Tap the map to drop a pin instead.";
-        updateSubmitNote();
+        el("loc-status").textContent = "";
+        done(err && err.code === err.PERMISSION_DENIED ? "denied" : "timeout");
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
+  }
+
+  // Ask up front where supported, so a already-blocked browser can say so
+  // before the volunteer has picked photos and hit a dead end.
+  function checkGeoPermission() {
+    if (!navigator.permissions || !navigator.permissions.query) { return; }
+    try {
+      navigator.permissions.query({ name: "geolocation" }).then(function (status) {
+        if (status.state === "denied" && !position) { setGeoState("denied"); }
+        status.onchange = function () {
+          if (status.state === "granted" && !position) { requestLocation(); }
+          else if (status.state === "denied" && !position) { setGeoState("denied"); }
+        };
+      });
+    } catch (e) { /* unsupported query name */ }
   }
 
   function inBounds(p, chapter) {
@@ -360,12 +449,20 @@
     }
 
     var n = sendable();
-    btn.disabled = n === 0 || submitting;
-    note.textContent = n === 0
-      ? "Choose at least one photo."
-      : (position
-          ? ""
-          : "No location yet — we'll fall back to whatever the photo itself carries.");
+
+    // A location is required, not preferred. Phones strip EXIF when a photo
+    // goes through a file input, so there is no second source to fall back on:
+    // a report sent without a position can never be placed on the map.
+    btn.disabled = n === 0 || !position || submitting;
+
+    if (n === 0) {
+      note.textContent = "Choose at least one photo.";
+    } else if (!position) {
+      note.textContent = "Add a location before sending — tap “Use my location” " +
+        "or tap the map.";
+    } else {
+      note.textContent = "";
+    }
   }
 
   function finishIfDone() {
@@ -408,11 +505,11 @@
   function resetForm() {
     files = [];
     submissionId = null;
+    // Keep the position: the next report is almost always from the same spot.
     el("photos").value = "";
     el("result").hidden = true;
     el("photos-hint").textContent =
-      "Take a new photo or pick existing ones. Please don't crop or edit them " +
-      "first — the original file carries the location and time.";
+      "Take a new photo or pick existing ones. Please don't crop or edit them first.";
     renderFiles();
     updateSubmitNote();
     window.scrollTo(0, 0);
@@ -459,8 +556,11 @@
     el("report-form").onsubmit = onSubmit;
 
     el("loc-status").textContent =
-      "Tap “Use my location”, or tap the map to drop a pin.";
+      "Tap “Use my location”, or tap the map to place the pin.";
 
+    detectBrave();
+    checkGeoPermission();
+    renderLocationHelp();
     updateSubmitNote();
   }
 

@@ -59,7 +59,12 @@ const CONFIG = {
     token: "moopmap-v1",
 
     maxPhotos: 10,
-    maxFileMB: 15
+    maxFileMB: 15,
+
+    // Warn when the device fix is looser than this (metres). A wifi-derived
+    // position indoors is routinely 50m+ out, which is too coarse to say which
+    // patch of ground a photo shows.
+    coarseAccuracyM: 50
   },
 
   defaultCenter: [37.07, -121.61],

@@ -164,9 +164,18 @@ appears not to take effect.
 - **Photos are never re-encoded.** No canvas, no resizing — drawing an image to
   a canvas strips EXIF, and EXIF is where the photo's GPS and capture time live.
   The raw `File` bytes are sent as-is.
-- **The device position is a fallback,** not the primary source. `mapillary_tools`
-  prefers the photo's own EXIF; the recorded position exists because iOS share
-  sheets strip it often enough to matter.
+- **The device position is the only source, not a fallback.** iOS strips EXIF
+  from every photo picked through a file input — always, both Safari and Brave,
+  confirmed across seven real submissions. A 140-byte stub survives with
+  orientation and pixel dimensions; no GPS, no capture time. So a report with no
+  position can never be placed, and the form refuses to send one.
+- **Location is required, with a manual escape hatch.** Tapping the map places
+  the pin by hand, which covers a blocked or failing GPS. Brave denies
+  geolocation without prompting and without erroring, so there is a 20s watchdog
+  and Brave-specific wording — "allow location" is useless advice there.
+- **A coarse fix is flagged.** Above `CONFIG.upload.coarseAccuracyM` (50 m) the
+  form says so; indoor wifi positioning is routinely 50 m+ out, too coarse to
+  identify a patch of ground.
 - **Requests are `text/plain`.** Apps Script Web Apps redirect in a way that
   fails CORS preflight, so a `text/plain` body — a "simple request" — is what
   makes this work at all. Sending `application/json` will not.

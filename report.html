@@ -44,17 +44,18 @@
       <label class="field-label" for="photos">Photos</label>
       <input type="file" id="photos" class="field-input" accept="image/*" multiple>
       <p class="field-hint" id="photos-hint">
-        Take a new photo or pick existing ones. Please don't crop or edit them
-        first &mdash; the original file carries the location and time.
+        Take a new photo or pick existing ones. Please don't crop or edit them first.
       </p>
       <ul id="file-list" class="file-list"></ul>
     </section>
 
     <section class="field">
-      <span class="field-label">Location</span>
+      <span class="field-label">Location <em class="field-required">required</em></span>
       <div id="mini-map" class="mini-map"></div>
-      <p class="field-hint" id="loc-status">Getting your location&hellip;</p>
+      <p class="field-hint" id="loc-status"></p>
       <button type="button" id="loc-btn" class="btn btn-secondary">Use my location</button>
+      <div id="loc-help" class="notice is-info" hidden></div>
+      <div id="loc-coarse" class="notice is-warn" hidden></div>
       <div id="geo-warn" class="notice is-warn" hidden></div>
     </section>
 
