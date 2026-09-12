@@ -30,8 +30,8 @@ a mixed folder cannot be uploaded in a single command.
 
 **2. Check the geofence before uploading, not after.**
 
-Every photo's position — EXIF first, the Sheet's `device_lat`/`device_lng` as
-fallback — should sit inside that chapter's `bounds` in `config.js`.
+Every photo's position — in practice the Sheet's `device_lat`/`device_lng`, see
+step 4 — should sit inside that chapter's `bounds` in `config.js`.
 
 **If anything falls outside, stop and look at it.** A Mapillary upload is
 public, permanent and awkward to retract; this is the last cheap moment to
@@ -41,13 +41,7 @@ be overridden, so this check is the real gate.
 Move offenders to `failed/<chapter>/` rather than deleting them. The usual
 cause is a mis-picked chapter, not a bad photo, and they just need re-filing.
 
-**3. Upload, with the organization key.**
-
-```bash
-mapillary_tools process_and_upload ./bwb_south_bay/2026-08-23 \
-  --user_name "<your mapillary username>" \
-  --organization_key "1605841191131530"
-```
+**3. Note the organization key you'll upload under.**
 
 > **`--organization_key` is not optional.** The map filters by
 > `organization_id`. A photo uploaded without it lands on Mapillary and is
@@ -56,11 +50,23 @@ mapillary_tools process_and_upload ./bwb_south_bay/2026-08-23 \
 > `config.js`; never hardcode it here, or the second chapter to onboard will
 > silently upload into South Bay.
 
-**4. For photos whose EXIF GPS was stripped.**
+`process_and_upload` is not usable here: it reads position and time from EXIF,
+which these photos do not have. Use `upload` with a description file instead.
 
-iOS share sheets strip EXIF fairly often, which is why the form records a
-device position alongside each submission. Build an image description file from
-the Sheet's coordinates:
+**4. Build the description file — you will need it every time.**
+
+> **iOS strips EXIF from every photo picked through a web file input.** Not
+> occasionally — always, in both Safari and Brave, confirmed on real
+> submissions. What survives is a 140-byte stub holding orientation, resolution
+> and pixel dimensions. No GPS, no capture time, no camera model. The pixels are
+> untouched at full resolution.
+>
+> So the device position the form records is **not a fallback, it is the only
+> source**. Every batch from the form needs a description file. A submission
+> with no device position (Brave silently denies geolocation) cannot be placed
+> by any means and has to go to `failed/`.
+
+Build it from the Sheet's `device_lat` / `device_lng`:
 
 ```json
 [
@@ -68,10 +74,24 @@ the Sheet's coordinates:
     "filename": "/abs/path/bwb_south_bay/2026-08-23/2026-08-23T17-42-11Z__abc__1.jpg",
     "MAPLatitude": 37.129448,
     "MAPLongitude": -121.659560,
-    "MAPCaptureTime": "2026_08_23_09_42_11_000"
+    "MAPCaptureTime": "2026_08_23_17_42_11_000",
+    "filetype": "image"
   }
 ]
 ```
+
+Two things the published examples leave out:
+
+- **`filetype: "image"` is required.** Without it the upload dies with
+  `KeyError: 'filetype'` in the deserializer. The docs example omits it.
+- **`MAPCaptureTime` is UTC.** Settled from the installed source, not guessed —
+  `parse_capture_time()` does `strptime(...).replace(tzinfo=timezone.utc)`, and
+  `build_capture_time()` converts to UTC with the comment *"otherwise it will be
+  assumed to be in local time"*. The filename stamp the Apps Script writes is
+  already UTC, so use it directly.
+
+Only `MAPLatitude`, `MAPLongitude` and `MAPCaptureTime` are required by the
+schema, plus `filetype` by the loader.
 
 ```bash
 mapillary_tools upload ./bwb_south_bay/2026-08-23 \
@@ -80,12 +100,49 @@ mapillary_tools upload ./bwb_south_bay/2026-08-23 \
   --organization_key "1605841191131530"
 ```
 
-> **Unverified:** `MAPCaptureTime` is `YYYY_MM_DD_HH_MM_SS_mmm` with no
-> timezone, and it isn't documented whether that's read as local or UTC.
-> Everything else in this project is pinned to `America/Los_Angeles`. Getting
-> this wrong shifts capture dates by up to a day, which would quietly corrupt
-> the date filter. **Test with one photo and check the date that comes back
-> through the API before relying on this path.**
+### The mapillary_tools progress bug (0.14.7)
+
+`mapillary_tools upload` **crashes partway through and publishes nothing**:
+
+```
+TypeError: '<' not supported between instances of 'NoneType' and 'int'
+  upload_pbar.update(payload["chunk_size"])
+```
+
+The upload event payload carries `chunk_size=None`, tqdm rejects it, and the
+exception aborts the run before the sequence is finished. There is no flag to
+turn the progress bar off. Run it through this wrapper instead:
+
+```python
+# mly_upload.py
+import sys, tqdm.std
+_orig = tqdm.std.tqdm.update
+def _safe(self, n=1):
+    return _orig(self, 0 if n is None else n)
+tqdm.std.tqdm.update = _safe
+from mapillary_tools.commands.__main__ import main
+sys.argv = ["mapillary_tools"] + sys.argv[1:]
+sys.exit(main())
+```
+
+```bash
+python3 mly_upload.py upload ./bwb_south_bay/2026-08-23 \
+  --desc_path desc.json --user_name "<you>" --organization_key "<org id>"
+```
+
+**Ignore the byte counters.** The same malformed payload means the summary
+reports `0 Bytes read` and `0 Bytes uploaded` even on a successful upload. They
+are not evidence of anything.
+
+**Confirm success by the cluster ID instead.** A finished sequence is recorded
+in `~/Library/Application Support/mapillary_tools/upload_history/**/*.json`:
+
+```json
+{ "sequence_image_count": 4, "cluster_id": "1373360548178058" }
+```
+
+A `cluster_id` means Mapillary accepted and registered the sequence. No
+`cluster_id` means it did not, whatever the summary said.
 
 **5. Close the loop.**
 
