@@ -50,7 +50,7 @@ const CONFIG = {
     // Apps Script Web App URL. Deploy apps-script/Code.gs, then paste the
     // /exec URL here. Until you do, report.html says it isn't set up yet
     // rather than failing on submit.
-    endpoint: "PASTE_APPS_SCRIPT_EXEC_URL_HERE",
+    endpoint: "https://script.google.com/macros/s/AKfycby7fzIvpWNecokUmI4GKcHTae6ONgADtE6da4LoVX2PJbu_sYtS-zxWHK4zYQIh3m7wSA/exec",
 
     // Sent with every request and checked by the Apps Script. This is NOT
     // security — it ships in client-side JS in a public repo and anyone can
