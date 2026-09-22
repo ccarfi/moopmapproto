@@ -2,8 +2,8 @@
 
 **BWB United Kingdom** · [moopmap.org](https://moopmap.org)
 
-Photos of MOOP, pinned where they were taken. Over time it shows how a place
-changes — and what our cleanups actually shift.
+Photos of MOOP, pinned where they were taken — showing how a place changes, and
+what our cleanups shift.
 
 ![FPO 1 — the map, legend open, zoomed to the UK](fpo-1-map.png)
 
@@ -11,9 +11,8 @@ changes — and what our cleanups actually shift.
 
 Open **moopmap.org**. Every dot is one photo.
 
-- **Tap a dot** for the photo and its details — when it was taken, which way the
-  camera was pointing. Tap the photo to fill the screen, then tap again to zoom
-  right in.
+- **Tap a dot** for the photo and its details. Tap the photo to fill the screen,
+  then tap again to zoom right in.
 - **Chapters** — tap a chapter's name to jump to it. Untick it to hide its dots.
 - **Dates** — shows the last year. Narrow it to a week to see one cleanup.
 - **Basemap** — Streets, or Satellite for aerial imagery.
@@ -34,20 +33,20 @@ Tap **Tell us about MOOP**, then:
 
 **Use Safari on iPhone, or Chrome on Android.** Brave blocks location without
 asking you, and a photo with no location can't go on the map. If location won't
-work at all, just tap the map to place the pin yourself — zoom in first so
-you're accurate. That report is every bit as good.
+work at all, tap the map to place the pin yourself — zoom in first so you're
+accurate.
 
 ![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 
 ## Worth knowing
 
-- **One photo per report.** Three angles of the same pile means three reports —
-  that way each keeps its own spot.
+- **One photo per report.** Three angles means three reports, each with its own
+  spot.
 - **Don't crop or edit.** Send the original straight from the camera.
-- **A few days to appear.** Photos are uploaded in batches, then processed.
-  Nothing's broken if yours isn't there yet.
+- **A few days to appear.** Uploaded in batches, then processed — nothing's
+  broken if yours isn't there yet.
 - **Public and permanent.** Faces and number plates are blurred automatically,
-  but don't photograph anything — or anyone — you wouldn't want published.
+  but don't photograph anything you wouldn't want published.
 
 ---
 
