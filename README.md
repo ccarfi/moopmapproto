@@ -1,9 +1,13 @@
 # Mapillary Photo Map — Morgan Hill / Gilroy
 
-A single-page map of [Mapillary](https://www.mapillary.com/) photo uploads around
-Morgan Hill and Gilroy, CA, currently showing BWB South Bay. Points are
-colour-coded by account, one legend row each, so further BWB chapters can be
-added alongside; clicking a point opens a panel with the photo and its metadata.
+A single-page map of [Mapillary](https://www.mapillary.com/) photo uploads by
+Burners Without Borders chapters. Points are colour-coded by chapter, one legend
+row each; clicking a point opens a panel with the photo and its metadata.
+
+| Chapter | Mapillary org | Area |
+| --- | --- | --- |
+| BWB South Bay | `1605841191131530` (`bwbsouthbay`) | Morgan Hill / Gilroy, CA |
+| BWB United Kingdom | `2898722160461721` (`bwbunitedkingdom`) | whole of the UK |
 
 Plain HTML/CSS/JS with Leaflet from a CDN. **No build step** — what's committed is
 what GitHub Pages serves.

@@ -9,6 +9,7 @@
  * apart. Keep them generous — an over-tight box that rejects a legitimate
  * report is worse than one that lets a stray through to human review. */
 const SOUTH_BAY_BOUNDS = { west: -121.72, south: 36.95, east: -121.42, north: 37.20 };
+const UNITED_KINGDOM_BOUNDS = { west: -8.7, south: 49.8, east: 1.8, north: 60.9 };
 
 const CONFIG = {
   // Read-only Mapillary client token. Starts with "MLY|".
@@ -42,6 +43,17 @@ const CONFIG = {
       center: [37.07, -121.61],
       zoom: 12,
       bounds: SOUTH_BAY_BOUNDS
+    },
+    {
+      key: "bwb_united_kingdom",
+      label: "BWB United Kingdom",
+      organizationId: "2898722160461721",   // slug: bwbunitedkingdom
+      color: "#2E86AB",
+      // The whole country, deliberately loose. An over-tight box that rejects a
+      // legitimate report is worse than one that lets a stray through to review.
+      center: [54.0, -2.5],
+      zoom: 6,
+      bounds: UNITED_KINGDOM_BOUNDS
     }
   ],
 

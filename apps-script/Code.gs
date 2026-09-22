@@ -34,7 +34,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Must match the keys in CONFIG.accounts. A submission naming anything else is
 // rejected: the chapter decides which Mapillary organization the photo is
 // eventually uploaded under, so a bad value would misfile it.
-var CHAPTERS = ['bwb_south_bay'];
+var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom'];
 
 var MAX_BYTES  = 15 * 1024 * 1024;
 // One photo per submission. The form sends a single device position and it
