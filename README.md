@@ -1,4 +1,4 @@
-# Mapillary Photo Map — Morgan Hill / Gilroy
+# MOOP Map — **[moopmap.org](https://moopmap.org)**
 
 A single-page map of [Mapillary](https://www.mapillary.com/) photo uploads by
 Burners Without Borders chapters. Points are colour-coded by chapter, one legend
@@ -69,7 +69,9 @@ Needs a static server (opening `index.html` via `file://` will break the API cal
 python3 -m http.server 8000
 ```
 
-Then visit <http://localhost:8000>.
+Then visit <http://localhost:8000>. Serving locally rather than opening
+`index.html` directly matters: `file://` breaks the API calls, and geolocation
+on the report form needs `localhost` or HTTPS.
 
 Results are cached in `sessionStorage` so reloads during development don't burn
 through the rate limit. To force a fresh fetch:
@@ -78,15 +80,44 @@ through the rate limit. To force a fresh fetch:
 http://localhost:8000/?refresh=1
 ```
 
-## Deploying to GitHub Pages
+## Deploying
 
-Everything lives at the repo root and all asset paths are relative, so the site works
-from a project subpath (`ccarfi.github.io/moopmapproto/`).
+Served by GitHub Pages from `main` at the repo root, on the custom domain
+**[moopmap.org](https://moopmap.org)**. Push to `main` and it redeploys in about
+a minute.
 
-1. Push to `main`.
-2. **Settings → Pages → Build and deployment → Source: Deploy from a branch**.
-3. Branch `main`, folder `/ (root)`. Save.
-4. Wait a minute, then load `https://ccarfi.github.io/moopmapproto/`.
+| URL | |
+| --- | --- |
+| `https://moopmap.org` | canonical |
+| `https://www.moopmap.org` | redirects to the apex |
+| `https://ccarfi.github.io/moopmapproto/` | the old project URL, also redirects |
+
+Pages settings are **Source: Deploy from a branch**, branch `main`, folder
+`/ (root)`, with **Custom domain** set to `moopmap.org` and **Enforce HTTPS**
+ticked. The `CNAME` file in the repo root is what carries the domain; GitHub
+writes it when you save the custom domain, so leave it alone.
+
+DNS at the registrar: four `A` records on `@` pointing at `185.199.108.153`,
+`.109.153`, `.110.153` and `.111.153`, plus a `CNAME` on `www` to
+`ccarfi.github.io`.
+
+**All asset paths are relative**, which is why moving from the project subpath to
+the domain root needed no code changes. Keep it that way — a leading slash works
+at the root but would have broken the old URL, and would break any future move.
+
+**HTTPS is not optional here.** `navigator.geolocation` only works on a secure
+origin, and the report form requires a location, so on plain HTTP the form
+cannot be completed at all.
+
+### Checking a deploy
+
+`/pages` reports a **stale status** — it showed `errored` for a build that had
+already been superseded by a successful one seconds later. Ask for the latest
+build instead:
+
+```bash
+gh api repos/ccarfi/moopmapproto/pages/builds/latest --jq '{status,commit:.commit[0:7]}'
+```
 
 ## How the data is fetched
 

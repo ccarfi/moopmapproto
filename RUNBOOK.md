@@ -149,8 +149,10 @@ A `cluster_id` means Mapillary accepted and registered the sequence. No
 
 Mapillary processing takes a while — expect hours, sometimes longer. Once
 done, the photos appear on the map with no code change, because they arrive
-through the same `organization_id` query that already drives it. Add
-`?refresh=1` to the map URL to bypass the session cache.
+through the same `organization_id` query that already drives it.
+
+Check at **<https://moopmap.org/?refresh=1>** — the `?refresh=1` bypasses the
+session cache, which otherwise serves the counts from before the upload.
 
 ## When this becomes automated
 

@@ -1,9 +1,13 @@
 /**
  * MOOP report receiver — Google Apps Script Web App.
  *
- * Receives one photo per request from report.html, files it in Drive under
- * inbox/<chapter>/<date>/, and logs one row per submission in a Sheet.
- * From there, RUNBOOK.md covers batch-uploading to Mapillary.
+ * Serves https://moopmap.org/report.html. Receives one photo per request,
+ * files it in Drive under inbox/<chapter>/<date>/, and logs one row per
+ * submission in a Sheet. From there, RUNBOOK.md covers batch-uploading to
+ * Mapillary.
+ *
+ * There is no origin check, so the endpoint answers requests from anywhere.
+ * That is why moving to a custom domain needed no change here.
  *
  * SETUP
  *   1. script.google.com → New project. Paste this file in as Code.gs.
