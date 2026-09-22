@@ -42,12 +42,19 @@
 
   function bboxParam(b) {
     // Mapillary wants west,south,east,north with no spaces.
+    if (!b) { return "everywhere"; }
     return [b.west, b.south, b.east, b.north].join(",");
   }
 
-  // Is this position inside the configured area of interest?
-  function inBbox(c) {
-    var b = CONFIG.bbox;
+  // Each chapter has its own area. A single global bbox only worked while there
+  // was one chapter: a second one anywhere else would have every image fetched
+  // and then silently discarded for being outside the first chapter's box.
+  function boundsFor(account) {
+    return (account && account.bounds) || CONFIG.bbox || null;
+  }
+
+  function inBbox(c, account) {
+    var b = boundsFor(account);
     if (!b) { return true; }
     return c.lon >= b.west && c.lon <= b.east && c.lat >= b.south && c.lat <= b.north;
   }
@@ -138,7 +145,7 @@
 
   function cacheKey(account) {
     return "mly:" + CACHE_VERSION + ":" +
-      hash(CONFIG.mapillaryToken + "|" + bboxParam(CONFIG.bbox) + "|" + account.key);
+      hash(CONFIG.mapillaryToken + "|" + bboxParam(boundsFor(account) || {}) + "|" + account.key);
   }
 
   function readCache(account) {
@@ -202,7 +209,7 @@
 
       var c = coordsOf(img);
       if (!c) { unplaced++; return; }
-      if (!inBbox(c)) { outside++; return; }
+      if (!inBbox(c, account)) { outside++; return; }
       images.push(img);
     });
 
@@ -842,12 +849,17 @@
     CONFIG.accounts.forEach(function (account) {
       if (!groups[account.key]) { return; }
 
-      var label = document.createElement("label");
-      label.className = "legend-row";
+      var row = document.createElement("div");
+      row.className = "legend-row";
+
+      var toggle = document.createElement("label");
+      toggle.className = "legend-toggle-box";
+      toggle.title = "Show or hide " + account.label;
 
       var cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = true;
+      cb.setAttribute("aria-label", "Show " + account.label);
       cb.onchange = function () {
         if (cb.checked) { map.addLayer(groups[account.key]); }
         else { map.removeLayer(groups[account.key]); }
@@ -857,23 +869,69 @@
       swatch.className = "swatch";
       swatch.style.background = account.color;
 
-      var name = document.createElement("span");
+      toggle.appendChild(cb);
+      toggle.appendChild(swatch);
+
+      // Chapters can be thousands of miles apart, so the name is how you get
+      // there — the map only ever frames one chapter at a time.
+      var name = document.createElement("button");
+      name.type = "button";
       name.className = "legend-label";
       name.textContent = account.label;
+      name.title = "Zoom to " + account.label;
+      name.onclick = function () { focusChapter(account.key, true); };
 
       var count = document.createElement("span");
       count.className = "legend-count";
       count.setAttribute("data-key", account.key);
       count.textContent = counts[account.key];
 
-      label.appendChild(cb);
-      label.appendChild(swatch);
-      label.appendChild(name);
-      label.appendChild(count);
-      rows.appendChild(label);
+      row.appendChild(toggle);
+      row.appendChild(name);
+      row.appendChild(count);
+      rows.appendChild(row);
     });
 
     el("legend-accounts").hidden = false;
+  }
+
+  var FOCUS_PREF = "moopmap:chapter-view";
+
+  function groupBounds(key) {
+    var g = groups[key];
+    if (!g) { return null; }
+    var b;
+    try { b = g.getBounds(); } catch (e) { return null; }   // empty group
+    return (b && b.isValid()) ? b : null;
+  }
+
+  // Zoom to one chapter. With chapters on different continents there is no
+  // useful "show everything" view — fitting South Bay and the UK together frames
+  // the Atlantic — so the map always focuses a single chapter and the legend
+  // lets you switch. Every chapter's markers stay on the map; only the view moves.
+  function focusChapter(key, remember) {
+    // Remember the choice even when the chapter has no photos yet — a new
+    // chapter starts empty, and "I was looking at the UK" should survive a
+    // reload rather than snapping back to California.
+    if (remember) {
+      try { localStorage.setItem(FOCUS_PREF, key); } catch (e) { /* private mode */ }
+    }
+
+    var b = groupBounds(key);
+    if (b) {
+      map.fitBounds(b, { padding: [48, 48], maxZoom: 17 });
+      return;
+    }
+    var a = accountByKey(key);
+    if (a && a.center) { map.setView(a.center, a.zoom || CONFIG.defaultZoom); }
+  }
+
+  function accountByKey(key) {
+    var list = CONFIG.accounts || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].key === key) { return list[i]; }
+    }
+    return null;
   }
 
   function fitToMarkers() {
@@ -882,16 +940,20 @@
     // fits against a stale size and slams the zoom to maxZoom.
     map.invalidateSize({ animate: false });
 
-    var bounds = null;
-    Object.keys(groups).forEach(function (k) {
-      var b;
-      try { b = groups[k].getBounds(); } catch (e) { return; }   // empty group
-      if (!b || !b.isValid()) { return; }
-      bounds = bounds ? bounds.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());
-    });
-    // maxZoom keeps a one-photo result set from fitting all the way to z20.
-    if (bounds && bounds.isValid()) { map.fitBounds(bounds, { padding: [48, 48], maxZoom: 17 }); }
-    else { map.setView(CONFIG.defaultCenter, CONFIG.defaultZoom); }
+    var saved = null;
+    try { saved = localStorage.getItem(FOCUS_PREF); } catch (e) { /* private mode */ }
+
+    // Prefer the chapter last looked at — even if it is still empty, in which
+    // case focusChapter falls back to its declared centre. Otherwise the first
+    // chapter that actually has photos.
+    if (saved && accountByKey(saved)) { focusChapter(saved, false); return; }
+
+    var list = CONFIG.accounts || [];
+    for (var i = 0; i < list.length; i++) {
+      if (groupBounds(list[i].key)) { focusChapter(list[i].key, false); return; }
+    }
+
+    map.setView(CONFIG.defaultCenter, CONFIG.defaultZoom);
   }
 
   /* ----------------------------------------------------------------- boot */
@@ -976,9 +1038,12 @@
 
     if (total === 0) {
       showOverlay("No photos found",
-        "Both queries succeeded but returned nothing in bbox " + bboxParam(CONFIG.bbox) +
-        " (west,south,east,north). The usual causes are a wrong bounding box or a wrong " +
-        "organization ID / creator username in config.js.");
+        "Every chapter query succeeded but returned nothing. Searched " +
+        CONFIG.accounts.map(function (a) {
+          return a.label + " in " + bboxParam(boundsFor(a));
+        }).join("; ") +
+        " (west,south,east,north). The usual causes are a wrong bounding box or a " +
+        "wrong organization ID in config.js.");
     }
   }
 

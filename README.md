@@ -200,6 +200,26 @@ guess shouldn't be able to block a legitimate report. The **hard** gate is in
 and the chapter's `bounds`, so the map's area of interest and the form's check
 cannot drift apart.
 
+## More than one chapter
+
+Each chapter filters against **its own** `bounds`, not a single global box.
+`CONFIG.bbox` survives only as a fallback for an entry that declares none.
+
+Chapters can be thousands of miles apart, so there is no useful "fit everything"
+view — framing South Bay and a UK chapter together shows the Atlantic. The map
+therefore focuses **one chapter at a time**:
+
+- Every chapter's markers are on the map; only the view is scoped.
+- Clicking a chapter name in the legend flies to it, and that choice is
+  remembered in `localStorage`.
+- On load it returns to the chapter you last looked at, falling back to the
+  first one that has photos. A chapter with no photos yet falls back to its
+  declared `center` / `zoom`, so a newly added chapter still goes somewhere
+  sensible.
+
+The legend checkbox and the chapter name are separate controls: the checkbox
+shows or hides that chapter's markers, the name moves the view.
+
 ## Collapsing the controls
 
 The legend card collapses to a small pill in the corner. It starts collapsed on
