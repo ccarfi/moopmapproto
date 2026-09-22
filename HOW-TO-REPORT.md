@@ -1,51 +1,53 @@
-# How to report MOOP
+# MOOP Map — a quick guide
 
 **BWB United Kingdom** · [moopmap.org](https://moopmap.org)
 
-Spot some MOOP, photograph it, and it goes onto a shared map. Over time that
-builds a picture of how a place changes — and what our cleanups actually shift.
+Photos of MOOP, pinned where they were taken. Over time it shows how a place
+changes — and what our cleanups actually shift.
 
-![FPO 1 — the map at moopmap.org, zoomed to the UK](fpo-1-map.png)
+![FPO 1 — the map, legend open, zoomed to the UK](fpo-1-map.png)
 
-## What you need
+## Looking at the map
 
-A phone with a camera and a data connection.
+Open **moopmap.org**. Every dot is one photo.
 
-**Use Safari on iPhone, or Chrome on Android.** Brave blocks location sharing
-without asking you first, and a report without a location can't go on the map.
+- **Tap a dot** for the photo and its details — when it was taken, which way the
+  camera was pointing. Tap the photo to fill the screen, then tap again to zoom
+  right in.
+- **Chapters** — tap a chapter's name to jump to it. Untick it to hide its dots.
+- **Dates** — shows the last year. Narrow it to a week to see one cleanup.
+- **Basemap** — Streets, or Satellite for aerial imagery.
 
-## Sending a report
+On a phone the panel starts closed. Tap the icon in the top right to open it.
 
-1. Go to **moopmap.org** and tap **Tell us about MOOP**.
-2. Under **Chapter**, choose **BWB United Kingdom**.
-3. Tap **Choose File** — take a photo, or pick one from your library.
-4. Tap **Use my location**, and allow it when your phone asks.
-5. Check the pin on the little map. Drag it, or tap elsewhere, if it's off.
-6. Tap **Send photo**.
+![FPO 2 — a photo open, with its details](fpo-2-photo.png)
 
-That's it. You'll see a confirmation.
+## Adding a photo
 
-![FPO 2 — the form filled in, ready to send](fpo-2-form.png)
+Tap **Tell us about MOOP**, then:
+
+1. Chapter → **BWB United Kingdom**
+2. **Choose File** — take a photo, or pick one from your library
+3. **Use my location**, and allow it when your phone asks
+4. Check the pin. Drag it, or tap the map, if it's off
+5. **Send photo**
+
+**Use Safari on iPhone, or Chrome on Android.** Brave blocks location without
+asking you, and a photo with no location can't go on the map. If location won't
+work at all, just tap the map to place the pin yourself — zoom in first so
+you're accurate. That report is every bit as good.
+
+![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 
 ## Worth knowing
 
-- **One photo per report.** Three angles of the same pile? Send three reports.
-  Each keeps its own location, which is the whole point.
-- **Don't crop or edit first.** Send the original straight from your camera.
-- **A location is required.** If the Send button stays greyed out, that's why.
-- **Photos take a few days to appear.** They're uploaded in batches and then
-  processed. Nothing's broken if you don't see yours straight away.
-- **Photos become public.** They're published openly and permanently. Faces and
-  number plates are blurred automatically, but don't photograph anything — or
-  anyone — you wouldn't want published.
-
-## If the location doesn't work
-
-Tap the small map to drop the pin yourself. Zoom in first so you can be
-accurate. This works even when your phone won't share its location at all, and
-the report is just as good.
-
-![FPO 3 — the confirmation after sending](fpo-3-sent.png)
+- **One photo per report.** Three angles of the same pile means three reports —
+  that way each keeps its own spot.
+- **Don't crop or edit.** Send the original straight from the camera.
+- **A few days to appear.** Photos are uploaded in batches, then processed.
+  Nothing's broken if yours isn't there yet.
+- **Public and permanent.** Faces and number plates are blurred automatically,
+  but don't photograph anything — or anyone — you wouldn't want published.
 
 ---
 
