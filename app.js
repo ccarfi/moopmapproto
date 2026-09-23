@@ -1,4 +1,4 @@
-/* Mapillary Photo Map — Morgan Hill / Gilroy
+/* MOOP Map — Burners Without Borders
  *
  * Plain JS, no build step. Depends on Leaflet + Leaflet.markercluster (CDN)
  * and CONFIG from config.js.
