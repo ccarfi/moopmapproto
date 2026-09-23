@@ -28,15 +28,14 @@ MoopMap Uploads/inbox/bwb_south_bay/2026-08-23/
 One chapter at a time. Each chapter uploads under its own organization key, so
 a mixed folder cannot be uploaded in a single command.
 
-**2. Check the geofence before uploading, not after.**
+**2. The geofence check is automatic.**
 
-Every photo's position — in practice the Sheet's `device_lat`/`device_lng`, see
-step 4 — should sit inside that chapter's `bounds` in `config.js`.
-
-**If anything falls outside, stop and look at it.** A Mapillary upload is
-public, permanent and awkward to retract; this is the last cheap moment to
-catch "these were all shot in Toledo". The form only warns, and the warning can
-be overridden, so this check is the real gate.
+`tools/build_desc.py` in step 4 refuses to build a description file if any
+photo's position falls outside that chapter's `bounds` in `config.js`, and names
+the offenders. A Mapillary upload is public, permanent and awkward to retract,
+so this is the last cheap moment to catch "these were all shot in Toledo" — and
+the form's own warning is deliberately soft and overridable, which makes this
+the real gate.
 
 Move offenders to `failed/<chapter>/` rather than deleting them. The usual
 cause is a mis-picked chapter, not a bad photo, and they just need re-filing.
@@ -66,7 +65,30 @@ which these photos do not have. Use `upload` with a description file instead.
 > with no device position (Brave silently denies geolocation) cannot be placed
 > by any means and has to go to `failed/`.
 
-Build it from the Sheet's `device_lat` / `device_lng`:
+**Don't build it by hand.** `tools/build_desc.py` does the matching, keying on
+the submission id embedded in each filename so a photo can only ever be paired
+with its own row:
+
+```bash
+# Sheet -> File -> Download -> Comma-separated values
+python3 tools/build_desc.py ./bwb_south_bay/2026-08-23 --sheet ~/Downloads/submissions.csv
+```
+
+It writes `desc.json` beside the photos and prints the upload command with that
+chapter's organization key already filled in — which is also how the key stops
+being something you retype.
+
+**It refuses to build** if any photo's position falls outside the chapter's
+`bounds`, if a photo has no matching Sheet row, or if the folder's chapter
+disagrees with the Sheet's. Those are the cases that put imagery somewhere wrong
+and public. Photos with no position at all are skipped with a reason rather than
+failing the run — they belong in `failed/<chapter>/`. `--force` overrides the
+bounds check, deliberately.
+
+This replaces step 2's manual geofence check: the script is the gate now, rather
+than a paragraph asking a human to look.
+
+For reference, the format it produces:
 
 ```json
 [

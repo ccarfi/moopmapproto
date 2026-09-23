@@ -24,6 +24,7 @@ what GitHub Pages serves.
 | `RUNBOOK.md` | Getting submitted photos from Drive into Mapillary. |
 | `ADDING-A-CHAPTER.md` | Onboarding a new BWB chapter — Mapillary org, config, Apps Script. |
 | `HOW-TO-REPORT.md` | One-page guide for volunteers. |
+| `tools/build_desc.py` | Builds the upload description file from the Sheet, and gates the batch. |
 | `tools/mly_upload.py` | Wrapper around `mapillary_tools`, which crashes mid-upload without it. |
 | `styles.css` | All styling. |
 
