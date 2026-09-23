@@ -42,7 +42,9 @@ accurate.
 
 - **One photo per report.** Three angles means three reports, each with its own
   spot.
-- **Don't crop or edit.** Send the original straight from the camera.
+- **Send the photo, not a screenshot.** Screenshots can't go on the map — the
+  form will tell you if you pick one. Choose the original from your camera roll.
+- **Don't crop or edit.** Send it straight from the camera.
 - **A few days to appear.** Uploaded in batches, then processed — nothing's
   broken if yours isn't there yet.
 - **Public and permanent.** Faces and number plates are blurred automatically,

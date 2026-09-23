@@ -81,9 +81,20 @@ being something you retype.
 **It refuses to build** if any photo's position falls outside the chapter's
 `bounds`, if a photo has no matching Sheet row, or if the folder's chapter
 disagrees with the Sheet's. Those are the cases that put imagery somewhere wrong
-and public. Photos with no position at all are skipped with a reason rather than
-failing the run — they belong in `failed/<chapter>/`. `--force` overrides the
-bounds check, deliberately.
+and public. `--force` overrides the bounds check, deliberately.
+
+**Files it can't use are named, not skipped silently** — no position recorded,
+or not a JPEG. Neither can be uploaded by any means, so they belong in
+`failed/<chapter>/`. The report is the only thing standing between those and a
+photo that sits in `inbox/` indefinitely with nobody told why.
+
+> **Mapillary takes `.jpg`/`.jpeg` and nothing else** — `IMAGE_EXTENSIONS` in
+> `mapillary_tools/utils.py`. A **`.png` is almost always an iPhone
+> screenshot**: someone screenshotted their camera roll instead of sharing the
+> photo. There's no fix at this end — converting a screenshot to JPEG gives you
+> a JPEG of a screenshot, with the phone's UI in it and no better provenance.
+> Ask for the original. `report.html` now rejects non-JPEG at the picker, so
+> this should only turn up in batches submitted before that shipped.
 
 This replaces step 2's manual geofence check: the script is the gate now, rather
 than a paragraph asking a human to look.

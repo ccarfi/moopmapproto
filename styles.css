@@ -801,7 +801,8 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 .file-row.is-sent .file-status { color: #15803d; }
 
 .file-row.is-failed .file-status,
-.file-row.is-too-big .file-status { color: #b91c1c; }
+.file-row.is-too-big .file-status,
+.file-row.is-bad-type .file-status { color: #b91c1c; }
 
 .file-retry {
   flex: none;

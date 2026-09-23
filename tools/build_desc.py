@@ -28,8 +28,9 @@ IT REFUSES TO BUILD IF
     Those are the cases that put imagery somewhere wrong and public, which is
     not undoable. Pass --force to override deliberately.
 
-PHOTOS WITH NO POSITION are skipped with a reason rather than failing the run:
-    they cannot be placed by any means and belong in failed/<chapter>/.
+PHOTOS IT CANNOT USE are reported with a reason rather than failing the run —
+    no position recorded, or not a JPEG. Neither can be uploaded by any means,
+    and both belong in failed/<chapter>/.
 """
 
 import argparse
@@ -87,11 +88,22 @@ def main():
     accounts = load_config(repo_root)
     by_key = {a['key']: a for a in accounts}
 
-    photos = sorted(
+    everything = sorted(
         f for f in os.listdir(args.folder)
-        if f.lower().endswith(('.jpg', '.jpeg')) and not f.startswith('.')
+        if not f.startswith('.')
+        and os.path.isfile(os.path.join(args.folder, f))
+        # .json is this tool's own output, under whatever name the operator
+        # gave it. Not a submission, so not its business.
+        and not f.lower().endswith('.json')
     )
-    if not photos:
+    # mapillary_tools accepts .jpg/.jpeg only (utils.py: IMAGE_EXTENSIONS), so
+    # anything else here can never be uploaded by any means. Name it: silently
+    # ignoring it leaves the photo sitting in inbox/ forever with nobody told
+    # why, which is how the first PNG screenshot got lost.
+    photos = [f for f in everything if f.lower().endswith(('.jpg', '.jpeg'))]
+    wrong_type = [f for f in everything if f not in photos]
+
+    if not everything:
         sys.exit('error: no photos in %s' % args.folder)
 
     rows = {}
@@ -153,7 +165,19 @@ def main():
 
     print('chapter   %s (%s)' % (account['label'], chapter))
     print('org key   %s' % account['organizationId'])
-    print('photos    %d in folder, %d ready' % (len(photos), len(entries)))
+    print('files     %d in folder, %d ready' % (len(everything), len(entries)))
+
+    if wrong_type:
+        print('\nnot a JPEG — Mapillary cannot accept these at all: %d'
+              % len(wrong_type))
+        for name in wrong_type:
+            ext = (os.path.splitext(name)[1] or '(none)').lower()
+            print('   %s — %s' % (name, ext))
+        print('   A .png is almost always an iPhone screenshot rather than a')
+        print('   photo. Ask for the original; there is no way to convert one')
+        print('   into usable imagery.')
+        print('   move these to failed/%s/, status failed, and say so in notes'
+              % chapter)
 
     for label, items in (('skipped (no position)', skipped),
                          ('no matching Sheet row', unmatched)):

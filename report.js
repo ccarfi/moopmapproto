@@ -258,6 +258,12 @@
     return (CONFIG.upload && CONFIG.upload.maxPhotos) ? CONFIG.upload.maxPhotos : 10;
   }
 
+  function isJpeg(file) {
+    var type = (file.type || "").toLowerCase();
+    if (type) { return type === "image/jpeg" || type === "image/jpg"; }
+    return /\.jpe?g$/i.test(file.name || "");   // some pickers report no type
+  }
+
   function humanSize(bytes) {
     return bytes >= 1024 * 1024
       ? (bytes / 1024 / 1024).toFixed(1) + " MB"
@@ -270,11 +276,20 @@
 
     // maxPhotos is 1; slice keeps this honest if that ever changes.
     picked.slice(0, maxPhotos()).forEach(function (f) {
-      files.push({
-        file: f,
-        status: f.size > maxBytes() ? "too-big" : "ready",
-        error: f.size > maxBytes() ? "Too large (" + humanSize(f.size) + ")" : null
-      });
+      var status = "ready", error = null;
+
+      // Mapillary only accepts JPEG, so a PNG can never be uploaded — and a
+      // screenshot is a PNG, which is an easy thing to send by mistake. Say so
+      // here rather than letting it sit in the queue unuploadable.
+      if (!isJpeg(f)) {
+        status = "bad-type";
+        error = "Not a JPEG — send a photo, not a screenshot";
+      } else if (f.size > maxBytes()) {
+        status = "too-big";
+        error = "Too large (" + humanSize(f.size) + ")";
+      }
+
+      files.push({ file: f, status: status, error: error });
     });
 
     renderFiles();
@@ -325,6 +340,7 @@
       case "sent":     return "Sent ✓";
       case "failed":   return item.error || "Failed";
       case "too-big":  return item.error;
+      case "bad-type": return item.error;
       default:         return "";
     }
   }
@@ -430,6 +446,12 @@
     }).length;
   }
 
+  function rejected() {
+    return files.filter(function (f) {
+      return f.status === "bad-type" || f.status === "too-big";
+    }).length;
+  }
+
   function updateSubmitNote() {
     var note = el("submit-note");
     var btn = el("submit-btn");
@@ -447,7 +469,9 @@
     // a report sent without a position can never be placed on the map.
     btn.disabled = n === 0 || !position || submitting;
 
-    if (n === 0) {
+    if (n === 0 && rejected()) {
+      note.textContent = "That file can't be used — choose another.";
+    } else if (n === 0) {
       note.textContent = "Choose a photo.";
     } else if (!position) {
       note.textContent = "Add a location first.";
