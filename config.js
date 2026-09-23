@@ -124,6 +124,18 @@ const CONFIG = {
   // start unfiltered with empty pickers.
   defaultDateRangeDays: 365,
 
+  // Photo dot size. Bigger on touch devices: a 6px radius is a 12px target
+  // against Apple's 44px guidance, which is why taps miss on a phone and never
+  // on a desktop. Kept well under 44 so a dense street doesn't turn into a blob.
+  markerRadius: 6,
+  markerRadiusTouch: 10,
+
+  // How far a finger may slide between touch-down and touch-up while still
+  // counting as a tap. Leaflet's default is 3px, which a thumb beats easily —
+  // and past it Leaflet calls the gesture a drag and swallows the click
+  // entirely, so the photo silently fails to open.
+  tapSlopTouch: 12,
+
   // Deepest zoom the map allows, across all basemaps.
   maxZoom: 20,
 

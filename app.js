@@ -586,7 +586,7 @@
       var c = coordsOf(img);
       if (!c) { return; }   // no usable position — skip it
       var marker = L.circleMarker([c.lat, c.lon], {
-        radius: 6,
+        radius: markerRadius(),
         color: "#ffffff",
         weight: 1.5,
         opacity: 1,
@@ -958,7 +958,21 @@
 
   /* ----------------------------------------------------------------- boot */
 
+  function markerRadius() {
+    return L.Browser.touch
+      ? (CONFIG.markerRadiusTouch || 10)
+      : (CONFIG.markerRadius || 6);
+  }
+
   function initMap() {
+    // Leaflet treats a touch that slides more than clickTolerance (3px by
+    // default) as a drag and suppresses the click, so a slightly imprecise tap
+    // on a photo does nothing at all. A thumb beats 3px routinely; a mouse
+    // never does, which is why this only shows up on phones.
+    if (L.Browser.touch && CONFIG.tapSlopTouch) {
+      L.Draggable.prototype.options.clickTolerance = CONFIG.tapSlopTouch;
+    }
+
     map = L.map("map", { zoomControl: true, maxZoom: CONFIG.maxZoom || 20 })
       .setView(CONFIG.defaultCenter, CONFIG.defaultZoom);
 
