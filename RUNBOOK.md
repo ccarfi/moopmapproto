@@ -164,8 +164,20 @@ A `cluster_id` means Mapillary accepted and registered the sequence. No
 
 - Move the folder from `inbox/` to `uploaded/`. This is what makes a re-run
   idempotent — `inbox/` is the work queue, so anything still in it is unsent.
-- Set `status` to `uploaded` and stamp `mapillary_uploaded_at` on those rows in
-  the Sheet.
+- In the Sheet, on those rows: set `status` to `uploaded`, stamp
+  `mapillary_uploaded_at`, and paste the `cluster_id` into
+  `mapillary_cluster_id`.
+
+The cluster id matters more than it looks. It is the only durable handle joining
+a Sheet row to what actually exists on Mapillary, and it otherwise lives solely
+in a local file under `~/Library`, on whichever machine happened to run the
+upload. If you ever need to find, dispute or explain a sequence, that number is
+the thread.
+
+For anything that did **not** go up — no position, wrong chapter, a deliberate
+test — set `status` to `failed` and write why in `notes`. `failed` on its own
+reads as a system fault when someone looks back in six months; "no location —
+Brave denied geolocation" reads as what it was.
 
 **6. Confirm.**
 

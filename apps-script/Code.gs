@@ -47,10 +47,18 @@ var MAX_BYTES  = 15 * 1024 * 1024;
 // be tampered with.
 var MAX_PHOTOS = 1;
 
+// Order matters: appendRow writes positionally, so these must match the live
+// sheet's columns left to right. 'notes' sits where it already does in the
+// sheet; 'mapillary_cluster_id' is appended after it rather than inserted
+// before, which would shift every later value into the wrong column.
+//
+// Both new columns are filled in by a human during the upload run, not by the
+// form — see RUNBOOK.md step 5.
 var HEADERS = [
   'submission_id', 'bwb_chapter', 'received_at_utc', 'file_names', 'photo_count',
   'device_lat', 'device_lng', 'device_accuracy_m', 'position_source',
-  'in_chapter_bounds', 'user_agent', 'status', 'mapillary_uploaded_at'
+  'in_chapter_bounds', 'user_agent', 'status', 'mapillary_uploaded_at',
+  'notes', 'mapillary_cluster_id'
 ];
 
 // -------------------------------------------------------------- endpoints
@@ -146,7 +154,9 @@ function recordRow(p, name) {
     p.inChapterBounds || 'unknown',
     p.userAgent || '',
     'pending',
-    ''
+    '',   // mapillary_uploaded_at
+    '',   // notes
+    ''    // mapillary_cluster_id
   ]);
 }
 
@@ -157,12 +167,29 @@ function sheetTab() {
     sheet = ss.insertSheet(SHEET_TAB);
     sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
+    return sheet;
   }
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
+    return sheet;
   }
+  addMissingHeaders(sheet);
   return sheet;
+}
+
+// Adds any header the sheet doesn't have yet, at the end. Deliberately additive:
+// it never reorders or renames what's already there, because appendRow writes by
+// position and existing rows would silently shift.
+function addMissingHeaders(sheet) {
+  var width = Math.max(sheet.getLastColumn(), 1);
+  var have = sheet.getRange(1, 1, 1, width).getValues()[0]
+    .map(function (h) { return String(h).trim(); });
+
+  var missing = HEADERS.filter(function (h) { return have.indexOf(h) === -1; });
+  if (!missing.length) { return; }
+
+  sheet.getRange(1, have.length + 1, 1, missing.length).setValues([missing]);
 }
 
 // --------------------------------------------------------------- replies
