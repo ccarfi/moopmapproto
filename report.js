@@ -241,7 +241,8 @@
     var ok = inBounds(position, c);
 
     if (ok === false) {
-      warn.textContent = "Looks outside " + c.label + " — check the chapter.";
+      warn.textContent = "This location seems far away from " + c.label +
+        " — check the chapter at the top of the form.";
       warn.hidden = false;
     } else {
       warn.hidden = true;
