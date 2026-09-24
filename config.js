@@ -8,17 +8,27 @@
  * area of interest and the report form's out-of-area check can never drift
  * apart. Keep them generous — an over-tight box that rejects a legitimate
  * report is worse than one that lets a stray through to human review. */
-const SOUTH_BAY_BOUNDS = { west: -121.72, south: 36.95, east: -121.42, north: 37.20 };
+/* The nine Bay Area counties: Alameda, Contra Costa, Marin, Napa, San
+ * Francisco, San Mateo, Santa Clara, Solano, Sonoma.
+ *
+ * Derived from the union of those counties' own extents (OSM/Nominatim,
+ * checked 2026-09-24) — W -123.633, S 36.893, E -121.208, N 38.864 — then
+ * rounded outward for margin. The binding corners are Sonoma's coast in the
+ * west, Napa's northern tip, Santa Clara's south end below Gilroy and its
+ * eastern edge past Mt Hamilton. San Francisco's Farallon Islands sit well
+ * inside the western edge. */
+const BAY_AREA_BOUNDS = { west: -123.70, south: 36.85, east: -121.15, north: 38.92 };
 const UNITED_KINGDOM_BOUNDS = { west: -8.7, south: 49.8, east: 1.8, north: 60.9 };
 
 const CONFIG = {
   // Read-only Mapillary client token. Starts with "MLY|".
   mapillaryToken: "MLY|38185652681048683|1939dcd6b0775816788bca3a3f9b8935",
 
-  // Area of interest: Morgan Hill / Gilroy, CA. Applied client-side, not as a
-  // query parameter — Mapillary rejects a bbox this large (see README). Set to
-  // null to map every image an account has, wherever it is.
-  bbox: SOUTH_BAY_BOUNDS,
+  // Fallback area of interest, for an account with no `bounds` of its own.
+  // Applied client-side, not as a query parameter — Mapillary rejects a bbox
+  // this large (see README). Set to null to map every image an account has,
+  // wherever it is.
+  bbox: BAY_AREA_BOUNDS,
 
   // One entry per chapter: its own colour, legend row and Mapillary
   // organization. `key` is also the `bwb_chapter` value recorded with every
@@ -39,10 +49,15 @@ const CONFIG = {
       organizationId: "1605841191131530",
       color: "#E4572E",
       // Used by report.html's out-of-area check. `center` / `zoom` are also
-      // where a per-chapter default map view will read from.
-      center: [37.07, -121.61],
-      zoom: 12,
-      bounds: SOUTH_BAY_BOUNDS
+      // where a per-chapter default map view will read from — including the
+      // report form's mini-map, which is what someone pans when geolocation
+      // fails. Centred on the middle of the bay rather than on the imagery in
+      // South County: the chapter now spans nine counties, and starting a
+      // volunteer in Alameda 60 miles from their own street is worse than
+      // starting everyone one zoom level out.
+      center: [37.8, -122.2],
+      zoom: 9,
+      bounds: BAY_AREA_BOUNDS
     },
     {
       key: "bwb_united_kingdom",

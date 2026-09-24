@@ -6,7 +6,7 @@ row each; clicking a point opens a panel with the photo and its metadata.
 
 | Chapter | Mapillary org | Area |
 | --- | --- | --- |
-| BWB South Bay | `1605841191131530` (`bwbsouthbay`) | Morgan Hill / Gilroy, CA |
+| BWB South Bay | `1605841191131530` (`bwbsouthbay`) | The nine Bay Area counties, CA |
 | BWB United Kingdom | `2898722160461721` (`bwbunitedkingdom`) | whole of the UK |
 
 Plain HTML/CSS/JS with Leaflet from a CDN. **No build step** — what's committed is
@@ -234,7 +234,7 @@ selected chapter's box, the form warns but still lets it through — a bad bound
 guess shouldn't be able to block a legitimate report. The **hard** gate is in
 `RUNBOOK.md`, before upload, where a mistake is still cheap to fix.
 
-`SOUTH_BAY_BOUNDS` in `config.js` is one object referenced by both `CONFIG.bbox`
+`BAY_AREA_BOUNDS` in `config.js` is one object referenced by both `CONFIG.bbox`
 and the chapter's `bounds`, so the map's area of interest and the form's check
 cannot drift apart.
 
