@@ -57,12 +57,17 @@
       <div id="geo-warn" class="notice is-warn" hidden></div>
     </section>
 
-    <button type="submit" id="submit-btn" class="btn btn-primary">Send photo</button>
-    <p class="field-hint" id="submit-note"></p>
+    <div id="submit-area">
+      <button type="submit" id="submit-btn" class="btn btn-primary">Send photo</button>
+      <p class="field-hint" id="submit-note"></p>
+    </div>
+
+    <!-- Inside the form and in the submit button's own place, not appended
+         after it. On a phone the button is the last thing the thumb touched,
+         so a confirmation rendered below it lands off-screen. -->
+    <div id="result" class="result" role="status" hidden></div>
 
   </form>
-
-  <div id="result" class="result" hidden></div>
 
 </main>
 

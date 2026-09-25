@@ -488,9 +488,22 @@
     if (sent === 0) { return; }
 
     var box = el("result");
+
+    // Unhidden before it is filled, deliberately: role="status" announces
+    // mutations inside a live region that is already rendered, so populating a
+    // still-hidden box can pass a screen reader by in silence.
     box.hidden = false;
     box.className = "result " + (failed ? "is-warn" : "is-ok");
     box.textContent = "";
+
+    // Nothing left to send, so the submit button has no job — and a disabled
+    // grey button sitting where the confirmation belongs is what pushed the
+    // confirmation off-screen in the first place. Anything that failed keeps
+    // the button, because retrying needs it.
+    if (!failed) {
+      el("submit-area").hidden = true;
+      el("report-form").classList.add("is-done");
+    }
 
     var h = document.createElement("strong");
     h.textContent = "Photo sent";
@@ -519,6 +532,8 @@
     submissionId = null;
     el("photos").value = "";
     el("result").hidden = true;
+    el("submit-area").hidden = false;
+    el("report-form").classList.remove("is-done");
     renderFiles();
 
     // Drop the previous report's position and take a fresh reading. Carrying it
@@ -556,14 +571,22 @@
     el("submit-btn").disabled = true;
     el("submit-btn").textContent = "Sending…";
 
+    // On a fast connection the whole send can finish inside a frame or two, so
+    // "Sending…" flashes and the confirmation appears to come from nowhere.
+    // Hold the sending state briefly so the swap reads as a sequence.
+    var sendingSince = Date.now();
+
     // One request per photo, in sequence: base64 inflates the payload by about
     // a third, and a failure part-way through then only costs that one photo.
     for (var k = 0; k < todo.length; k++) {
       await sendOne(todo[k]);
     }
 
+    var shown = Date.now() - sendingSince;
+    if (shown < 400) { await new Promise(function (r) { setTimeout(r, 400 - shown); }); }
+
     submitting = false;
-    el("submit-btn").textContent = "Send photos";
+    el("submit-btn").textContent = "Send photo";
     updateSubmitNote();
     finishIfDone();
   }

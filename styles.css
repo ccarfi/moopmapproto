@@ -867,6 +867,15 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 
 .result[hidden] { display: none; }
 
+/* The "Send another photo" button inside the confirmation. */
+.result .btn { margin-top: 12px; width: 100%; }
+
+#submit-area[hidden] { display: none; }
+
+/* Stand the form down once a report is sent: still readable, so someone can
+   check the pin they just sent, but plainly no longer the live thing. */
+#report-form.is-done .field { opacity: .55; }
+
 .report-link {
   display: block;
   text-align: center;
