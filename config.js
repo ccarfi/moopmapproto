@@ -18,6 +18,12 @@
  * eastern edge past Mt Hamilton. San Francisco's Farallon Islands sit well
  * inside the western edge. */
 const BAY_AREA_BOUNDS = { west: -123.70, south: 36.85, east: -121.15, north: 38.92 };
+/* Colorado is one of only two states that are true rectangles: 37°N to 41°N,
+ * and 102°03′W to 109°03′W (25° to 32° west of the Washington meridian). So
+ * unlike the Bay Area box this is the state, not a generous approximation of
+ * it — nothing of a neighbouring state falls inside. Surveyed corners wander a
+ * few hundred metres from the nominal lines, which the rounding below covers. */
+const COLORADO_BOUNDS = { west: -109.0602, south: 36.9925, east: -102.0416, north: 41.0034 };
 const UNITED_KINGDOM_BOUNDS = { west: -8.7, south: 49.8, east: 1.8, north: 60.9 };
 
 const CONFIG = {
@@ -58,6 +64,19 @@ const CONFIG = {
       center: [37.8, -122.2],
       zoom: 9,
       bounds: BAY_AREA_BOUNDS
+    },
+    {
+      key: "bwb_colorado",
+      label: "BWB Colorado",
+      organizationId: "1581190229640795",   // slug: bwbcolorado
+      // Checked against the other two under simulated protanopia and
+      // deuteranopia, not picked by eye: purple, gold, magenta and brown all
+      // collapse into #E4572E or #2E86AB for a red- or green-blind reader.
+      // Green and teal survive; this is the green.
+      color: "#4C9F70",
+      center: [39.0, -105.55],
+      zoom: 7,
+      bounds: COLORADO_BOUNDS
     },
     {
       key: "bwb_united_kingdom",

@@ -40,7 +40,46 @@ curl -s "https://graph.mapillary.com/<ORG_KEY>?fields=id,slug,name&access_token=
 
 You want the name you just typed. If it 400s, the key is wrong.
 
-## 2. Add the chapter to `config.js`
+## 2. Allow the chapter in the Apps Script
+
+**Do this before `config.js`, not after.** The form offers the new chapter the
+moment `config.js` deploys, but the server rejects anything not on its
+allowlist — so pushing `config.js` first opens a window where a volunteer who
+picks the new chapter gets `Unknown chapter` and loses their photo. Allowing a
+chapter nobody can select yet is harmless; the reverse is not.
+
+Edit `CHAPTERS` in `Code.gs`:
+
+```javascript
+var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom', 'bwb_scotland'];
+```
+
+Then **Deploy → Manage deployments → pencil → Version: New version → Deploy**.
+
+> **Not "New deployment".** That mints a brand-new `/exec` URL and leaves the old
+> one serving old code, so `CONFIG.upload.endpoint` has to be repointed. This
+> caught us twice. Also note the Version dropdown defaults to the
+> currently-deployed version — you have to actively pick *New version*, or you
+> redeploy identical code and it looks like nothing happened.
+
+**Check** — this reads the live `CHAPTERS` constant, so it's an answer rather
+than an inference:
+
+```bash
+curl -sL "$(grep -o 'https://script.google.com[^"]*' config.js)"
+```
+
+```
+{"service":"moop-report","chapters":["bwb_south_bay","bwb_colorado","bwb_united_kingdom"],"ok":true}
+```
+
+The new key must appear in that list. If it doesn't, the deploy didn't take.
+
+**The `-L` matters.** Apps Script answers `/exec` with a 302 to
+`script.googleusercontent.com`; without `-L` curl prints nothing at all, which
+looks exactly like a broken deployment.
+
+## 3. Add the chapter to `config.js`
 
 A bounds constant, then an entry in `accounts`:
 
@@ -68,44 +107,11 @@ const SCOTLAND_BOUNDS = { west: -8.7, south: 54.6, east: -0.7, north: 61.0 };
 - `center` / `zoom` are where the map goes when someone taps the chapter name,
   and they're what a brand-new chapter with no photos falls back to.
 
-Push to `main`. Pages redeploys in about a minute.
+Push to `main`, but only once step 2 is deployed and verified. Pages
+redeploys in about a minute.
 
 **Check:** the legend shows the new chapter at `0 images`, and clicking its name
 flies the map there.
-
-## 3. Allow the chapter in the Apps Script
-
-The report form will offer the new chapter as soon as step 2 deploys, but the
-server rejects anything not on its allowlist. Edit `CHAPTERS` in `Code.gs`:
-
-```javascript
-var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom', 'bwb_scotland'];
-```
-
-Then **Deploy → Manage deployments → pencil → Version: New version → Deploy**.
-
-> **Not "New deployment".** That mints a brand-new `/exec` URL and leaves the old
-> one serving old code, so `CONFIG.upload.endpoint` has to be repointed. This
-> caught us twice. Also note the Version dropdown defaults to the
-> currently-deployed version — you have to actively pick *New version*, or you
-> redeploy identical code and it looks like nothing happened.
-
-**Check** — this reads the live `CHAPTERS` constant, so it's an answer rather
-than an inference:
-
-```bash
-curl -sL "$(grep -o 'https://script.google.com[^"]*' config.js)"
-```
-
-```
-{"service":"moop-report","chapters":["bwb_south_bay","bwb_united_kingdom"],"ok":true}
-```
-
-The new key must appear in that list. If it doesn't, the deploy didn't take.
-
-**The `-L` matters.** Apps Script answers `/exec` with a 302 to
-`script.googleusercontent.com`; without `-L` curl prints nothing at all, which
-looks exactly like a broken deployment.
 
 ## 4. Test a real submission
 
@@ -147,7 +153,7 @@ when you send them `HOW-TO-REPORT.md`.
 
 | Symptom | Cause |
 | --- | --- |
-| `Unknown chapter` on submit | Step 3 not deployed, or deployed as the same version |
+| `Unknown chapter` on submit | Step 2 not deployed, deployed as the same version, or `config.js` pushed ahead of it |
 | Form works, but the endpoint URL changed | Used "New deployment" instead of "New version" |
 | Chapter shows `0 images` with photos on Mapillary | Uploaded without `--organization_key`, or the wrong one |
 | Photos fetched then vanish | Their positions fall outside the chapter's `bounds` |
