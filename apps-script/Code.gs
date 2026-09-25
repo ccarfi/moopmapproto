@@ -20,6 +20,8 @@
  *   5. Re-deploy (new version) after any edit here — the /exec URL keeps
  *      serving the old code until you do. This is the #1 source of
  *      "why didn't my change take effect".
+ *   6. Run installDigestTrigger() once from the editor to get the daily
+ *      "reports waiting" email. It will ask to authorize sending mail.
  *
  * NOTE ON SECURITY
  *   SHARED_TOKEN is not security. It ships in client-side JS in a public repo,
@@ -39,6 +41,11 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // rejected: the chapter decides which Mapillary organization the photo is
 // eventually uploaded under, so a bad value would misfile it.
 var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom'];
+
+// Where the daily digest goes. Left empty on purpose: it defaults to whoever
+// owns the trigger, so no email address is committed to a public repo. Set it
+// only to send somewhere else.
+var NOTIFY_TO = '';
 
 var MAX_BYTES  = 15 * 1024 * 1024;
 // One photo per submission. The form sends a single device position and it
@@ -190,6 +197,145 @@ function addMissingHeaders(sheet) {
   if (!missing.length) { return; }
 
   sheet.getRange(1, have.length + 1, 1, missing.length).setValues([missing]);
+}
+
+// ---------------------------------------------------------------- digest
+
+// Reports only reach the map when a human runs RUNBOOK.md. Nothing otherwise
+// says a queue exists, and with chapters submitting into a Drive that is not
+// theirs, an unnoticed queue means volunteers abroad see nothing appear and
+// conclude the app is broken.
+//
+// Deliberately a digest and not a per-submission alert: a MOOP walk produces a
+// report every couple of minutes, and twenty emails in an hour gets muted — a
+// muted notification is indistinguishable from no notification.
+//
+// Note that Sheets' own notification rules cannot do this job. They do not fire
+// for your own edits, and this script runs as the owner, so every row it writes
+// is the owner's edit. Such a rule would look configured and do nothing.
+function dailyDigest() {
+  var rows = pendingRows();
+
+  // Silence has to mean "queue clear", or the mail becomes noise and gets
+  // filtered, which is the failure this is meant to prevent.
+  if (!rows.length) { return; }
+
+  var uploadable = rows.filter(function (r) { return !r.blocked; });
+  var blocked    = rows.filter(function (r) { return r.blocked; });
+
+  var byChapter = {};
+  uploadable.forEach(function (r) {
+    byChapter[r.chapter] = (byChapter[r.chapter] || 0) + 1;
+  });
+
+  var lines = [];
+  lines.push(uploadable.length + ' report' + (uploadable.length === 1 ? '' : 's') +
+             ' waiting to be uploaded to Mapillary.');
+  lines.push('');
+
+  Object.keys(byChapter).sort().forEach(function (k) {
+    lines.push('  ' + k + ': ' + byChapter[k]);
+  });
+
+  var oldest = oldestAgeDays(uploadable);
+  if (oldest !== null) {
+    lines.push('');
+    lines.push(oldest === 0
+      ? 'Oldest arrived today.'
+      : 'Oldest has been waiting ' + oldest + ' day' + (oldest === 1 ? '' : 's') + '.');
+  }
+
+  // Counted apart so the headline number is work that an upload run can
+  // actually clear. These need a 'failed' mark and a note, not an upload.
+  if (blocked.length) {
+    lines.push('');
+    lines.push(blocked.length + (blocked.length === 1 ? ' cannot be uploaded at all and needs'
+                                                        : ' cannot be uploaded at all and need') +
+               ' marking failed:');
+    blocked.forEach(function (r) { lines.push('  ' + r.files + ' — ' + r.why); });
+  }
+
+  lines.push('');
+  lines.push('Run: RUNBOOK.md');
+  lines.push('Sheet: ' + SpreadsheetApp.openById(SHEET_ID).getUrl());
+
+  MailApp.sendEmail(
+    recipient(),
+    'MOOP Map — ' + uploadable.length + ' report' + (uploadable.length === 1 ? '' : 's') + ' waiting',
+    lines.join('\n')
+  );
+}
+
+// Read by header name rather than by position. appendRow writes positionally,
+// but addMissingHeaders means the live sheet's column order can legitimately
+// differ from HEADERS — and a digest that reads the wrong column silently
+// reports nonsense.
+function pendingRows() {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
+  if (!sheet || sheet.getLastRow() < 2) { return []; }
+
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var col = function (name) { return head.indexOf(name); };
+
+  var iStatus = col('status'), iChapter = col('bwb_chapter'),
+      iLat = col('device_lat'), iLng = col('device_lng'),
+      iFiles = col('file_names'), iWhen = col('received_at_utc');
+
+  if (iStatus === -1) { return []; }
+
+  var out = [];
+  for (var r = 1; r < values.length; r++) {
+    var row = values[r];
+    if (String(row[iStatus]).trim() !== 'pending') { continue; }
+
+    var files = iFiles === -1 ? '' : String(row[iFiles] || '');
+    var hasPos = iLat !== -1 && iLng !== -1 &&
+                 String(row[iLat]).trim() !== '' && String(row[iLng]).trim() !== '';
+    var isJpeg = /\.jpe?g$/i.test(files);
+
+    var why = null;
+    if (!hasPos) { why = 'no position recorded'; }
+    else if (files && !isJpeg) { why = 'not a JPEG'; }
+
+    out.push({
+      chapter: iChapter === -1 ? '(unknown)' : String(row[iChapter] || '(unknown)'),
+      files: files,
+      when: iWhen === -1 ? '' : String(row[iWhen] || ''),
+      blocked: why !== null,
+      why: why
+    });
+  }
+  return out;
+}
+
+function oldestAgeDays(rows) {
+  var oldest = null;
+  rows.forEach(function (r) {
+    var t = Date.parse(r.when);
+    if (!isNaN(t) && (oldest === null || t < oldest)) { oldest = t; }
+  });
+  if (oldest === null) { return null; }
+  return Math.floor((Date.now() - oldest) / 86400000);
+}
+
+function recipient() {
+  var to = NOTIFY_TO || Session.getEffectiveUser().getEmail();
+  if (!to) {
+    throw new Error('No digest recipient: set NOTIFY_TO, or run this as a signed-in user.');
+  }
+  return to;
+}
+
+// Idempotent on purpose. Installing from the Triggers UI twice is easy to do
+// and leaves you with two digests a day and no obvious cause.
+function installDigestTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'dailyDigest') { ScriptApp.deleteTrigger(t); }
+  });
+  ScriptApp.newTrigger('dailyDigest').timeBased().atHour(8).everyDays(1).create();
+  return 'Daily digest installed — runs about 08:00 in ' +
+         Session.getScriptTimeZone() + ', and stays silent when nothing is pending.';
 }
 
 // --------------------------------------------------------------- replies

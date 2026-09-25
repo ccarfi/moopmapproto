@@ -218,5 +218,25 @@ token that can upload.
 
 ## If nobody runs this
 
-Submissions pile up in `inbox/` unnoticed and volunteers see nothing appear.
-Worth a periodic look at the Sheet for rows still marked `pending`.
+Submissions pile up in `inbox/` and volunteers see nothing appear — and with
+chapters submitting into a Drive that isn't theirs, they have no way to tell
+the difference between "waiting" and "broken".
+
+`dailyDigest()` in `apps-script/Code.gs` guards against that. A time-driven
+trigger counts `pending` rows once a day and emails a per-chapter breakdown
+with the age of the oldest. **It sends nothing when there is nothing pending**,
+deliberately: silence has to mean "queue clear", or the mail becomes noise and
+gets filtered, which is the failure it exists to prevent.
+
+It counts rows that can never be uploaded — no position, or not a JPEG —
+separately, so the headline number is work an upload run can actually clear.
+Those need a `failed` mark and a note instead.
+
+Install it by running `installDigestTrigger()` once from the Apps Script
+editor. It's idempotent, so running it again won't leave you with two digests
+a day.
+
+> Sheets' own notification rules cannot do this job, which is worth knowing
+> before someone tries. They don't fire for your own edits, and the web app is
+> deployed **Execute as: Me** — so every row the script writes is the owner's
+> edit. Such a rule looks configured and does nothing.
