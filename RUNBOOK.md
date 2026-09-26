@@ -21,7 +21,7 @@ memory.
 
 **1. Pull down one chapter/date folder from Drive.**
 
-To see what is waiting without opening Drive:
+Only needed for the CLI path below — `console.py --batch` does it for you.
 
 ```bash
 python3 tools/console.py --list
@@ -82,7 +82,25 @@ which these photos do not have. Use `upload` with a description file instead.
 ```bash
 export MOOPMAP_ADMIN_TOKEN='...'
 export MAPILLARY_USER='<your mapillary username>'
-python3 tools/console.py ./bwb_south_bay/2026-09-24 --sheet ~/Downloads/submissions.csv
+
+python3 tools/console.py --list                        # what is waiting
+python3 tools/console.py --batch bwb_south_bay 2026-09-25
+```
+
+`--batch` fetches the photos from Drive and reads the Sheet live — **no
+download, no unzip, no CSV export.** Files land flat in `~/.moopmap/batches/`,
+so the nested `<date>/<date>/` that a Drive zip produces cannot happen. Fetching
+again skips anything already there at the right size.
+
+Reading the Sheet live matters more than the convenience: a CSV export goes
+stale the moment anyone touches the Sheet, and a stale export is how a photo
+gets re-sent or paired with the wrong row.
+
+A local folder still works if you have one:
+
+```bash
+python3 tools/console.py ./bwb_south_bay/2026-09-24            # live Sheet
+python3 tools/console.py ./bwb_south_bay/2026-09-24 --sheet x.csv
 ```
 
 Opens a local page showing every photo in the batch with its position, a map,

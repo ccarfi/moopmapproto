@@ -144,7 +144,55 @@ def uploaded_already():
     return out
 
 
-def build_batch(folder, sheet_csv, chapter_override):
+def rows_from_csv(path):
+    import csv
+    rows = {}
+    with open(path, newline='', encoding='utf-8-sig') as fh:
+        for row in csv.DictReader(fh):
+            if row.get('submission_id'):
+                rows[row['submission_id'].strip()] = row
+    return rows
+
+
+def rows_from_sheet():
+    """Live rows, so the review never runs against a stale CSV export."""
+    res = drive_call('sheet-rows')
+    if not res.get('ok'):
+        sys.exit('error reading the Sheet: %s' % res.get('error'))
+    return {r['submission_id'].strip(): r
+            for r in res.get('rows') or [] if r.get('submission_id')}
+
+
+def fetch_batch(chapter, date, dest):
+    """Pull a batch out of Drive, flat. No zip, so no nested <date>/<date>/."""
+    listing = drive_call('list-inbox', chapter=chapter, date=date)
+    if not listing.get('ok'):
+        sys.exit('error: %s' % listing.get('error'))
+
+    files = listing.get('files') or []
+    if not files:
+        sys.exit('error: inbox/%s/%s is empty' % (chapter, date))
+
+    os.makedirs(dest, exist_ok=True)
+    for i, f in enumerate(files, 1):
+        target = os.path.join(dest, f['name'])
+        if os.path.exists(target) and os.path.getsize(target) == f.get('size'):
+            print('  [%d/%d] %s (already here)' % (i, len(files), f['name']))
+            continue
+        print('  [%d/%d] %s (%.1f MB)…'
+              % (i, len(files), f['name'], (f.get('size') or 0) / 1048576),
+              end='', flush=True)
+        res = drive_call('fetch-file', chapter=chapter, date=date, name=f['name'])
+        if not res.get('ok'):
+            sys.exit('\nerror fetching %s: %s' % (f['name'], res.get('error')))
+        import base64
+        with open(target, 'wb') as fh:
+            fh.write(base64.b64decode(res['dataBase64']))
+        print(' done')
+    return dest
+
+
+def build_batch(folder, rows, chapter_override):
     accounts = build_desc.load_config(REPO)
     by_key = {a['key']: a for a in accounts}
 
@@ -153,13 +201,6 @@ def build_batch(folder, sheet_csv, chapter_override):
         sys.exit('error: chapter %r is not in config.js (known: %s)'
                  % (chapter, ', '.join(by_key)))
     account = by_key[chapter]
-
-    rows = {}
-    import csv
-    with open(sheet_csv, newline='', encoding='utf-8-sig') as fh:
-        for row in csv.DictReader(fh):
-            if row.get('submission_id'):
-                rows[row['submission_id'].strip()] = row
 
     done = uploaded_already()
     photos = []
@@ -375,6 +416,12 @@ def main():
                     help="print what is still in Drive's inbox/ and exit")
     ap.add_argument('--move', nargs=3, metavar=('CHAPTER', 'DATE', 'TO'),
                     help='move one batch out of inbox/ into uploaded/ or failed/')
+    ap.add_argument('--batch', nargs=2, metavar=('CHAPTER', 'DATE'),
+                    help='fetch this batch from Drive and review it — no '
+                         'download, no unzip, no CSV export')
+    ap.add_argument('--cache-dir',
+                    default=os.path.expanduser('~/.moopmap/batches'),
+                    help='where fetched batches are kept')
     ap.add_argument('--sheet', help='CSV export of the submissions sheet')
     ap.add_argument('--chapter', default=None, help='override the chapter inferred from the path')
     ap.add_argument('--user-name', default=None, help='Mapillary username (default: $MAPILLARY_USER)')
@@ -415,15 +462,30 @@ def main():
         print('moved %s -> %s' % (date, res.get('to')))
         return
 
-    if not args.folder or not args.sheet:
-        sys.exit('error: give a batch folder and --sheet, or use --list, --move')
+    if args.batch:
+        chapter, date = args.batch
+        folder = os.path.join(args.cache_dir, chapter, date)
+        print('fetching inbox/%s/%s from Drive' % (chapter, date))
+        fetch_batch(chapter, date, folder)
+        print('  -> %s' % folder)
+        rows = rows_from_sheet()
+        print('read %d row(s) from the Sheet' % len(rows))
+    elif args.folder:
+        folder = os.path.abspath(args.folder)
+        # A CSV still works, but live rows are the default: an export goes
+        # stale the moment anyone touches the Sheet.
+        rows = rows_from_csv(args.sheet) if args.sheet else rows_from_sheet()
+    else:
+        sys.exit('error: use --batch CHAPTER DATE, or give a folder, '
+                 'or use --list / --move')
 
     user = args.user_name or os.environ.get('MAPILLARY_USER')
     if not user:
         sys.exit('error: pass --user-name or set MAPILLARY_USER (your Mapillary\n'
                  '       account, the one `mapillary_tools authenticate` used)')
     STATE['user_name'] = user
-    STATE['batch'] = build_batch(os.path.abspath(args.folder), args.sheet, args.chapter)
+    chapter_hint = args.chapter or (args.batch[0] if args.batch else None)
+    STATE['batch'] = build_batch(folder, rows, chapter_hint)
 
     counts = {}
     for p in STATE['batch']['photos']:

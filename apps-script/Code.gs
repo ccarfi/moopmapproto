@@ -126,12 +126,15 @@ function doPost(e) {
 
     // Admin actions carry their own token and never touch SHARED_TOKEN.
     if (p.action === 'mark-uploaded' || p.action === 'mark-failed' ||
-        p.action === 'list-inbox'    || p.action === 'move-batch') {
+        p.action === 'list-inbox'    || p.action === 'move-batch' ||
+        p.action === 'fetch-file'    || p.action === 'sheet-rows') {
       var denied = adminDenied(p);
       if (denied) { return denied; }
       if (p.action === 'mark-uploaded') { return markUploaded(p); }
       if (p.action === 'mark-failed')   { return markFailed(p); }
       if (p.action === 'list-inbox')    { return listInbox(p); }
+      if (p.action === 'fetch-file')    { return fetchFile(p); }
+      if (p.action === 'sheet-rows')    { return sheetRows(p); }
       return moveBatch(p);
     }
 
@@ -509,6 +512,21 @@ function listInbox(p) {
   var inbox = existingChild(DriveApp.getFolderById(ROOT_FOLDER_ID), 'inbox');
   if (!inbox) { return ok({ batches: [] }); }
 
+  // Asked about one batch: name its files, so a client can fetch them without
+  // a Drive credential of its own.
+  if (p && p.chapter && p.date) {
+    var ch = existingChild(inbox, p.chapter);
+    var dt = ch && existingChild(ch, p.date);
+    if (!dt) { return fail('No such batch: inbox/' + p.chapter + '/' + p.date); }
+    var names = [], it = dt.getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      names.push({ name: f.getName(), size: f.getSize() });
+    }
+    names.sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+    return ok({ chapter: p.chapter, date: p.date, files: names });
+  }
+
   var batches = [];
   var chapters = inbox.getFolders();
   while (chapters.hasNext()) {
@@ -534,6 +552,48 @@ function listInbox(p) {
                                    : (a.chapter < b.chapter ? -1 : 1);
   });
   return ok({ batches: batches });
+}
+
+// One file's bytes, base64. Per file rather than per batch on purpose: a
+// batch of seven 7 MB photos is ~63 MB once encoded, which is past what a
+// single Apps Script response should be asked to carry.
+function fetchFile(p) {
+  if (!p.chapter || !p.date || !p.name) {
+    return fail('Missing chapter, date or name');
+  }
+  var inbox = existingChild(DriveApp.getFolderById(ROOT_FOLDER_ID), 'inbox');
+  var ch = inbox && existingChild(inbox, p.chapter);
+  var dt = ch && existingChild(ch, p.date);
+  if (!dt) { return fail('No such batch: inbox/' + p.chapter + '/' + p.date); }
+
+  var it = dt.getFilesByName(p.name);
+  if (!it.hasNext()) { return fail('No such file: ' + p.name); }
+
+  var blob = it.next().getBlob();
+  return ok({ name: p.name, mimeType: blob.getContentType(),
+              dataBase64: Utilities.base64Encode(blob.getBytes()) });
+}
+
+// The submissions tab as objects keyed by header, so tooling stops needing a
+// hand-exported CSV — the step most likely to be stale when it matters.
+function sheetRows(p) {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
+  if (!sheet || sheet.getLastRow() < 2) { return ok({ rows: [] }); }
+
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var rows = [];
+
+  for (var r = 1; r < values.length; r++) {
+    var row = {};
+    for (var c = 0; c < head.length; c++) {
+      if (!head[c]) { continue; }
+      var v = values[r][c];
+      row[head[c]] = v instanceof Date ? v.toISOString() : String(v);
+    }
+    rows.push(row);
+  }
+  return ok({ rows: rows });
 }
 
 // inbox/<chapter>/<date>/ to uploaded/ or failed/. With `files`, moves only
