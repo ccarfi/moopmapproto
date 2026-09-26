@@ -343,6 +343,22 @@ and why. It does not keep the image, the coordinates or the user agent. Without
 it there is no way to show a report was acted on, and a re-submitted duplicate
 looks like a brand new report.
 
+### A disputed pin
+
+The report form keeps looking for the device after a pin is placed by hand. If
+a fix arrives more than `disagreeKm` (1 km) away, it asks which is right. When
+a volunteer keeps their pin, the distance is recorded in `pin_kept_despite_km`
+and the photo arrives in MOOP Map Admin **unticked**, flagged `pin disputed`.
+
+Keeping a pin is legitimate — the phone is occasionally the one that is wrong,
+and someone may be reporting a spot they photographed earlier. But a pin
+defended against the device's own fix is not the same as one nobody questioned,
+and it should not be published without a person looking.
+
+The threshold is generous on purpose. Nudging a pin to the correct side of a
+path must never trigger it; the error worth catching was 99 km, and even a
+coarse cell-tower fix settles that.
+
 ### Two different actions, deliberately
 
 A photo that has **not** been published gets a trash can, and removal is

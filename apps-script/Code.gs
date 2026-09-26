@@ -113,7 +113,11 @@ var HEADERS = [
   'submission_id', 'bwb_chapter', 'received_at_utc', 'file_names', 'photo_count',
   'device_lat', 'device_lng', 'device_accuracy_m', 'position_source',
   'in_chapter_bounds', 'user_agent', 'status', 'mapillary_uploaded_at',
-  'notes', 'mapillary_cluster_id', 'mapillary_confirmed_at'
+  'notes', 'mapillary_cluster_id', 'mapillary_confirmed_at',
+  // How far the hand-placed pin sat from the device's own fix, when the
+  // volunteer was asked and chose to keep the pin. Blank means never asked —
+  // either the pin agreed, or no fix ever arrived to disagree with it.
+  'pin_kept_despite_km'
 ];
 
 // -------------------------------------------------------------- endpoints
@@ -232,7 +236,9 @@ function recordRow(p, name) {
     'pending',
     '',   // mapillary_uploaded_at
     '',   // notes
-    ''    // mapillary_cluster_id
+    '',   // mapillary_cluster_id
+    '',   // mapillary_confirmed_at
+    p.pinKeptDespiteKm != null ? p.pinKeptDespiteKm : ''
   ]);
 }
 

@@ -111,6 +111,12 @@ const CONFIG = {
     maxPhotos: 1,
     maxFileMB: 15,
 
+    // How far a hand-placed pin may sit from the device's own fix before the
+    // form asks which one is right. Generous on purpose: nudging a pin to the
+    // correct side of a path must never trigger it, and the error worth
+    // catching was 99 km. Even a coarse cell-tower fix settles that.
+    disagreeKm: 1,
+
     // Warn when the device fix is looser than this (metres). A wifi-derived
     // position indoors is routinely 50m+ out, which is too coarse to say which
     // patch of ground a photo shows.

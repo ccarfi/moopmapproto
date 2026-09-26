@@ -18,6 +18,9 @@
   var geoState = "idle";    // idle | asking | ok | denied | timeout | unavailable
   var deviceDot = null;     // where the phone says it is — never the pin
   var deviceRing = null;    // its accuracy, drawn to scale
+  var devicePos = null;     // the last device fix, kept for the cross-check
+  var geoWatch = null;      // keeps looking after a pin is placed by hand
+  var keptPin = null;       // km of disagreement the volunteer chose to keep
   var isBrave = false;
 
   function el(id) { return document.getElementById(id); }
@@ -105,6 +108,7 @@
   // This keeps working when a fix lands after a manual placement, which is the
   // case that put two photos 99 km and 107 km from where they were taken.
   function showDeviceDot(lat, lng, accuracy) {
+    devicePos = { lat: lat, lng: lng, accuracy: accuracy };
     if (!map) { return; }
 
     if (!deviceDot) {
@@ -121,6 +125,74 @@
       deviceDot.setLatLng([lat, lng]);
       deviceRing.setLatLng([lat, lng]).setRadius(accuracy || 0);
     }
+  }
+
+  function kmApart(a, b) {
+    var R = 6371, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(a.lat * rad) * Math.cos(b.lat * rad) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  // The geofence cannot catch a pin that is wrong but still inside a
+  // nine-county box, and no box around a chapter that large ever could. The
+  // device's own fix is the only independent signal available — so when one
+  // arrives and disagrees with a hand-placed pin, ask.
+  //
+  // A question, not a block. The phone is sometimes the one that is wrong, and
+  // someone reporting a spot they photographed earlier has a legitimately
+  // disagreeing pin. What must not happen is the disagreement going unnoticed.
+  function checkAgainstDevice() {
+    var warn = el("geo-disagree");
+    if (!warn) { return; }
+
+    if (!devicePos || !position || position.source === "device") {
+      warn.hidden = true;
+      return;
+    }
+
+    var limit = (CONFIG.upload && CONFIG.upload.disagreeKm) || 1;
+    var d = kmApart(position, devicePos);
+    if (d < limit) { warn.hidden = true; keptPin = null; return; }
+
+    var far = d >= 10 ? Math.round(d) + " km"
+                      : (d >= 1 ? d.toFixed(1) + " km" : Math.round(d * 1000) + " m");
+
+    warn.textContent = "";
+    var p = document.createElement("p");
+    p.textContent = "This pin is " + far + " from where your phone says you are.";
+    warn.appendChild(p);
+
+    var row = document.createElement("div");
+    row.className = "disagree-row";
+
+    var useDevice = document.createElement("button");
+    useDevice.type = "button";
+    useDevice.className = "btn btn-secondary";
+    useDevice.textContent = "Use my phone's location";
+    useDevice.onclick = function () {
+      keptPin = null;
+      setPosition(devicePos.lat, devicePos.lng, devicePos.accuracy, "device");
+    };
+
+    var keep = document.createElement("button");
+    keep.type = "button";
+    keep.className = "btn btn-secondary";
+    keep.textContent = "Keep my pin";
+    keep.onclick = function () {
+      // Recorded, not just dismissed. A pin someone defended against their own
+      // phone is not the same as one nobody ever questioned.
+      keptPin = Math.round(d * 1000) / 1000;
+      warn.hidden = true;
+      updateSubmitNote();
+    };
+
+    row.appendChild(useDevice);
+    row.appendChild(keep);
+    warn.appendChild(row);
+    warn.hidden = false;
   }
 
   function setPosition(lat, lng, accuracy, source) {
@@ -157,6 +229,7 @@
 
     renderLocationHelp();
     checkBounds();
+    checkAgainstDevice();
     updateSubmitNote();
   }
 
@@ -259,13 +332,34 @@
         showDeviceDot(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         setPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "device");
         setGeoState("ok");
+        watchForDisagreement();
       },
       function (err) {
         el("loc-status").textContent = "";
-        done(err && err.code === err.PERMISSION_DENIED ? "denied" : "timeout");
+        var why = err && err.code === err.PERMISSION_DENIED ? "denied" : "timeout";
+        done(why);
+        // A timeout is not a refusal — a fix may still arrive while they place
+        // a pin, and that fix is exactly what catches a bad one.
+        if (why === "timeout") { watchForDisagreement(); }
       },
       { enableHighAccuracy: true, timeout: 25000, maximumAge: 30000 }
     );
+  }
+
+  // The fix that catches a bad pin is often the one that arrives a moment too
+  // late — the volunteer had already given up and tapped. So keep looking.
+  function watchForDisagreement() {
+    if (geoWatch !== null || !navigator.geolocation) { return; }
+    try {
+      geoWatch = navigator.geolocation.watchPosition(
+        function (pos) {
+          showDeviceDot(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+          checkAgainstDevice();
+        },
+        function () { /* a failed refresh changes nothing */ },
+        { enableHighAccuracy: true, maximumAge: 15000 }
+      );
+    } catch (e) { /* unsupported */ }
   }
 
   // Ask up front where supported, so a already-blocked browser can say so
@@ -462,6 +556,7 @@
       lng: position ? position.lng : null,
       accuracy: position ? position.accuracy : null,
       positionSource: position ? position.source : null,
+      pinKeptDespiteKm: keptPin,
       inChapterBounds: (function () {
         var v = inBounds(position, c);
         return v === null ? "unknown" : String(v);
@@ -598,6 +693,9 @@
     if (marker) { map.removeLayer(marker); marker = null; }
     if (deviceDot) { map.removeLayer(deviceDot); deviceDot = null; }
     if (deviceRing) { map.removeLayer(deviceRing); deviceRing = null; }
+    devicePos = null;
+    keptPin = null;
+    if (el("geo-disagree")) { el("geo-disagree").hidden = true; }
     el("loc-coarse").hidden = true;
     el("geo-warn").hidden = true;
     el("loc-status").textContent = "";

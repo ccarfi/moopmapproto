@@ -58,7 +58,7 @@
     text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
   }
   .b-ready { background: var(--ok-bg); color: var(--ok); }
-  .b-outside, .b-unrecorded { background: #fef3c7; color: var(--warn); }
+  .b-outside, .b-unrecorded, .b-disputed { background: #fef3c7; color: var(--warn); }
   .b-unusable, .b-blocked { background: #fee2e2; color: var(--bad); }
   .b-done { background: #eef0f3; color: var(--muted); }
   .why { font-size: 12px; color: var(--warn); }
@@ -136,7 +136,8 @@
 
   var LABEL = {
     ready: "ready", outside: "outside bounds", unusable: "cannot upload",
-    blocked: "wrong chapter", done: "already sent", unrecorded: "not recorded"
+    blocked: "wrong chapter", done: "already sent", unrecorded: "not recorded",
+    disputed: "pin disputed"
   };
 
   function log(line) {
@@ -146,7 +147,11 @@
     box.scrollTop = box.scrollHeight;
   }
 
-  function sendable(p) { return p.state === "ready" || p.state === "outside"; }
+  // Offered but never ticked by default — the whole point is that a person
+  // looks at it.
+  function sendable(p) {
+    return p.state === "ready" || p.state === "outside" || p.state === "disputed";
+  }
 
   function refresh() {
     var picked = batch.photos.filter(function (p) { return p.selected; });
@@ -177,7 +182,7 @@
     var d = document.createElement("div");
     d.className = "tile " + p.state;
     d.id = "t-" + p.name;
-    if (p.state === "outside") { d.classList.add("flag"); }
+    if (p.state === "outside" || p.state === "disputed") { d.classList.add("flag"); }
     if (p.state === "unusable" || p.state === "blocked") { d.classList.add("dead"); }
 
     var shot = document.createElement("div");

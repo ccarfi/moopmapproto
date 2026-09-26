@@ -870,6 +870,13 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 /* The "Send another photo" button inside the confirmation. */
 .result .btn { margin-top: 12px; width: 100%; }
 
+.disagree-row {
+  display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+}
+/* Neither answer is preselected — the phone is sometimes the one that's wrong. */
+.disagree-row .btn { flex: 1 1 auto; min-width: 140px; }
+#geo-disagree p { margin: 0; }
+
 #submit-area[hidden] { display: none; }
 
 /* Stand the form down once a report is sent: still readable, so someone can

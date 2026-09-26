@@ -105,6 +105,22 @@ def classify(name, row, account, already_uploaded):
                            'Sheet does not say so — record it rather than '
                            'sending it again' % already_uploaded[sid])
 
+    # The volunteer was shown their phone's position, told the pin disagreed,
+    # and kept the pin anyway. Sometimes right — the phone is occasionally the
+    # one that is wrong — but never something to publish unlooked-at.
+    kept = (row.get('pin_kept_despite_km') or '').strip()
+    if kept:
+        try:
+            km = float(kept)
+        except ValueError:
+            km = None
+        return dict(state='disputed', selected=False, sid=sid,
+                    lat=float(lat), lng=float(lng),
+                    reason='pin kept %s from where the phone said they were — '
+                           'check it before sending'
+                           % ('%.1f km' % km if km and km >= 1 else
+                              ('%d m' % round((km or 0) * 1000)) if km else 'some way'))
+
     bounds = account.get('bounds')
     if bounds and not build_desc.in_bounds(float(lat), float(lng), bounds):
         # Not blocked — offered, unticked. This is the decision the CLI could
