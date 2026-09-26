@@ -506,7 +506,7 @@ function overdueRows() {
     out.push({
       chapter: iChapter === -1 ? '(unknown)' : String(values[r][iChapter]),
       files: iFiles === -1 ? '' : String(values[r][iFiles]),
-      days: Math.floor((Date.now() - t) / 86400000)
+      days: calendarDaysAgo(t)
     });
   }
   return out;
@@ -923,7 +923,7 @@ function outstandingTakedowns() {
     out.push({
       cluster: iCluster === -1 ? '(unknown)' : String(values[r][iCluster] || '(unknown)'),
       reason: iReason === -1 ? '' : String(values[r][iReason] || ''),
-      days: isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000)
+      days: isNaN(t) ? null : calendarDaysAgo(t)
     });
   }
   return out;
@@ -993,7 +993,27 @@ function oldestAgeDays(rows) {
     if (!isNaN(t) && (oldest === null || t < oldest)) { oldest = t; }
   });
   if (oldest === null) { return null; }
-  return Math.floor((Date.now() - oldest) / 86400000);
+  return calendarDaysAgo(oldest);
+}
+
+// Calendar days in the script's timezone, not elapsed milliseconds.
+//
+// floor(elapsed / 24h) calls anything under a day "0", so a report submitted
+// at 15:47 yesterday was announced as "arrived today" by a digest running the
+// next morning. A message whose whole job is to convey how long something has
+// been waiting must not misstate it by a day.
+//
+// Comparing two yyyy-MM-dd strings rather than two instants also sidesteps
+// DST: the day either changed or it did not, whatever the clocks did.
+//
+// Thresholds elsewhere stay as elapsed time on purpose — "unconfirmed after
+// three days" is a duration, not a date. This is only for what gets printed.
+function calendarDaysAgo(when) {
+  var tz = Session.getScriptTimeZone();
+  var day = function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); };
+  var then = Date.parse(day(new Date(when)) + 'T00:00:00Z');
+  var today = Date.parse(day(new Date()) + 'T00:00:00Z');
+  return Math.round((today - then) / 86400000);
 }
 
 function recipient() {
