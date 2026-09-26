@@ -83,15 +83,21 @@ which these photos do not have. Use `upload` with a description file instead.
 export MOOPMAP_ADMIN_TOKEN='...'
 export MAPILLARY_USER='<your mapillary username>'
 
-python3 tools/console.py
+python3 tools/console.py          # start it once, leave it running
 ```
 
-With no arguments it asks Drive what is outstanding. One batch waiting and it
-reviews that one; several and it lists them and asks which. You do not have to
-know the chapter or the date — the queue already does.
+Then work in the page. It opens on **the queue**: what is still sitting in
+`inbox/`, with a **Download and review** button per batch. Pick one, review it,
+upload, and it drops back to the queue with that batch gone. **Check Drive
+again** re-asks without restarting anything.
 
-`--batch bwb_south_bay 2026-09-25` names one explicitly, and `--list` just
-prints what is waiting.
+So the terminal is a one-off, not a per-batch step. The server has to be local
+because the Mapillary upload needs `mapillary_tools` with your authenticated
+token, and that token cannot live in a browser page — but nothing else has to
+happen there.
+
+`--batch bwb_south_bay 2026-09-25` opens straight into one batch, and `--list`
+prints the queue without starting the server.
 
 It fetches the photos from Drive and reads the Sheet live — **no
 download, no unzip, no CSV export.** Files land flat in `~/.moopmap/batches/`,

@@ -163,6 +163,24 @@ def rows_from_sheet():
             for r in res.get('rows') or [] if r.get('submission_id')}
 
 
+def fetch_one(chapter, date, name, size, dest):
+    """One file. Per file so the page can show progress and a failure costs
+    one photo rather than the batch."""
+    os.makedirs(dest, exist_ok=True)
+    target = os.path.join(dest, name)
+    if os.path.exists(target) and (not size or os.path.getsize(target) == size):
+        return {'ok': True, 'cached': True, 'name': name}
+
+    res = drive_call('fetch-file', chapter=chapter, date=date, name=name)
+    if not res.get('ok'):
+        return {'ok': False, 'name': name, 'error': res.get('error')}
+
+    import base64
+    with open(target, 'wb') as fh:
+        fh.write(base64.b64decode(res['dataBase64']))
+    return {'ok': True, 'cached': False, 'name': name}
+
+
 def fetch_batch(chapter, date, dest):
     """Pull a batch out of Drive, flat. No zip, so no nested <date>/<date>/."""
     listing = drive_call('list-inbox', chapter=chapter, date=date)
@@ -275,6 +293,9 @@ def build_batch(folder, rows, chapter_override):
 # -------------------------------------------------------------------- upload
 
 def do_upload(names):
+    if not STATE.get('user_name'):
+        return {'ok': False, 'error': 'No Mapillary account set. Start the '
+                'console with --user-name, or set MAPILLARY_USER.'}
     batch = STATE['batch']
     folder = batch['folder']
     chosen = [p for p in batch['photos'] if p['name'] in set(names)]
@@ -413,14 +434,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == '/api/batch':
             # The token is deliberately absent from everything served.
-            return self._send(200, STATE['batch'])
+            return self._send(200, STATE.get('batch') or {'empty': True})
+
+        if path == '/api/queue':
+            res = drive_call('list-inbox')
+            return self._send(200, res)
+
+        if path == '/api/files':
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            res = drive_call('list-inbox', chapter=q.get('chapter', [''])[0],
+                             date=q.get('date', [''])[0])
+            return self._send(200, res)
 
         if path.startswith('/photo/'):
             name = urllib.parse.unquote(path[len('/photo/'):])
             # Only names the batch actually contains — no traversal.
-            if name not in {p['name'] for p in STATE['batch']['photos']}:
+            batch = STATE.get('batch') or {'photos': []}
+            if name not in {p['name'] for p in batch['photos']}:
                 return self._send(404, {'error': 'unknown photo'})
-            full = os.path.join(STATE['batch']['folder'], name)
+            full = os.path.join(batch['folder'], name)
             ctype = mimetypes.guess_type(full)[0] or 'application/octet-stream'
             with open(full, 'rb') as fh:
                 return self._send(200, fh.read(), ctype)
@@ -434,6 +466,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b'{}')
         except ValueError:
             return self._send(400, {'error': 'bad json'})
+
+        if path == '/api/fetch-one':
+            return self._send(200, fetch_one(
+                payload.get('chapter'), payload.get('date'),
+                payload.get('name'), payload.get('size'),
+                os.path.join(STATE['cache'], payload.get('chapter', ''),
+                             payload.get('date', ''))))
+
+        if path == '/api/load':
+            chapter, date = payload.get('chapter'), payload.get('date')
+            folder = os.path.join(STATE['cache'], chapter, date)
+            try:
+                STATE['batch'] = build_batch(folder, rows_from_sheet(), chapter)
+            except SystemExit as e:
+                return self._send(200, {'ok': False, 'error': str(e)})
+            return self._send(200, STATE['batch'])
 
         if path == '/api/upload':
             try:
@@ -479,6 +527,7 @@ def main():
                  '       in the Sheet, and that is not the token in config.js')
 
     STATE['token'] = token
+    STATE['user_name'] = args.user_name or os.environ.get('MAPILLARY_USER')
 
     # --list only reads Drive, so it must not ask for a Mapillary account.
     if args.list:
@@ -506,11 +555,18 @@ def main():
         print('moved %s -> %s' % (date, res.get('to')))
         return
 
-    # No arguments at all: the console already knows what is outstanding, so
-    # making someone read --list and retype a chapter and a date is a
-    # transcription step that buys nothing and can be got wrong.
+    STATE['cache'] = args.cache_dir
+
+    # No arguments: start with no batch and let the page show the queue. The
+    # terminal step is then a one-off — start it and leave it running — rather
+    # than something repeated for every batch.
     if not args.batch and not args.folder:
-        args.batch = pick_batch()
+        STATE['batch'] = None
+        res = drive_call('list-inbox')
+        n = len(res.get('batches') or []) if res.get('ok') else 0
+        print('%d batch(es) waiting in inbox/' % n if res.get('ok')
+              else 'could not reach Drive: %s' % res.get('error'))
+        return serve(args)
 
     if args.batch:
         chapter, date = args.batch
@@ -527,11 +583,7 @@ def main():
         rows = rows_from_csv(args.sheet) if args.sheet else rows_from_sheet()
 
 
-    user = args.user_name or os.environ.get('MAPILLARY_USER')
-    if not user:
-        sys.exit('error: pass --user-name or set MAPILLARY_USER (your Mapillary\n'
-                 '       account, the one `mapillary_tools authenticate` used)')
-    STATE['user_name'] = user
+
     chapter_hint = args.chapter or (args.batch[0] if args.batch else None)
     STATE['batch'] = build_batch(folder, rows, chapter_hint)
 
@@ -542,6 +594,10 @@ def main():
         STATE['batch']['label'], len(STATE['batch']['photos']),
         ', '.join('%d %s' % (v, k) for k, v in sorted(counts.items()))))
 
+    serve(args)
+
+
+def serve(args):
     # 127.0.0.1 explicitly, never 0.0.0.0: this process holds the admin token
     # and can publish publicly. There is no version of this that should be
     # reachable from the network.
@@ -549,8 +605,12 @@ def main():
     if server.server_address[0] != '127.0.0.1':
         sys.exit('error: refusing to serve on %s' % server.server_address[0])
 
+    if not STATE.get('user_name'):
+        print('note: MAPILLARY_USER is not set — reviewing works, uploading '
+              'will not')
+
     url = 'http://127.0.0.1:%d/' % args.port
-    print('review at %s   (ctrl-c when done)' % url)
+    print('open %s   (leave this running; ctrl-c to stop)' % url)
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:

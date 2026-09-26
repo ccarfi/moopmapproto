@@ -69,6 +69,15 @@
     white-space: pre-wrap; display: none;
   }
   .note { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .qrow {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .qrow .what { flex: 1; }
+  .qrow .who { font-weight: 500; }
+  .qrow .when { color: var(--muted); font-size: 13px; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -79,16 +88,26 @@
     <div class="sub" id="counts"></div>
   </div>
   <div class="spacer"></div>
-  <button id="all">Select all sendable</button>
-  <button id="none">Clear</button>
-  <button id="go" class="primary" disabled>Upload</button>
+  <button id="back" class="hidden">Back to the queue</button>
+  <button id="all" class="hidden">Select all sendable</button>
+  <button id="none" class="hidden">Clear</button>
+  <button id="go" class="primary hidden" disabled>Upload</button>
+  <button id="recheck">Check Drive again</button>
 </header>
 
 <main>
-  <p class="note" id="folder"></p>
-  <div id="map"></div>
-  <div class="grid" id="grid"></div>
-  <div id="log"></div>
+  <section id="queue">
+    <p class="note" id="queue-note">Checking Drive…</p>
+    <div id="queue-list"></div>
+    <div id="progress" class="note" style="display:none"></div>
+  </section>
+
+  <section id="review" style="display:none">
+    <p class="note" id="folder"></p>
+    <div id="map"></div>
+    <div class="grid" id="grid"></div>
+    <div id="log"></div>
+  </section>
 </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -330,17 +349,139 @@
     log("");
     log("done — out of the queue.");
     el("go").textContent = "Uploaded";
+    el("go").disabled = true;
+    el("back").textContent = "Back to the queue";
   }
 
-  fetch("/api/batch").then(function (r) { return r.json(); }).then(function (b) {
+  function show(view) {
+    el("queue").style.display  = view === "queue"  ? "" : "none";
+    el("review").style.display = view === "review" ? "" : "none";
+    ["back", "all", "none", "go"].forEach(function (id) {
+      el(id).classList.toggle("hidden", view !== "review");
+    });
+    el("recheck").classList.toggle("hidden", view !== "queue");
+  }
+
+  async function loadQueue() {
+    show("queue");
+    el("title").textContent = "MOOP Map";
+    el("counts").textContent = "";
+    el("queue-note").textContent = "Checking Drive…";
+    el("queue-list").innerHTML = "";
+
+    var res = await fetch("/api/queue").then(function (r) { return r.json(); });
+    if (!res.ok) {
+      el("queue-note").textContent = "Could not reach Drive: " + res.error;
+      return;
+    }
+    var batches = res.batches || [];
+    if (!batches.length) {
+      el("queue-note").textContent =
+        "Nothing waiting. Every submission has been uploaded and filed.";
+      return;
+    }
+    el("queue-note").textContent =
+      batches.length === 1 ? "One batch waiting in Drive."
+                           : batches.length + " batches waiting in Drive.";
+
+    batches.forEach(function (b) {
+      var row = document.createElement("div");
+      row.className = "qrow";
+
+      var what = document.createElement("div");
+      what.className = "what";
+      var who = document.createElement("div");
+      who.className = "who";
+      who.textContent = b.chapter;
+      var when = document.createElement("div");
+      when.className = "when";
+      when.textContent = b.date + " · " + b.files +
+                         (b.files === 1 ? " photo" : " photos");
+      what.appendChild(who); what.appendChild(when);
+      row.appendChild(what);
+
+      var go = document.createElement("button");
+      go.className = "primary";
+      go.textContent = "Download and review";
+      go.onclick = function () { download(b, go); };
+      row.appendChild(go);
+
+      el("queue-list").appendChild(row);
+    });
+  }
+
+  async function download(b, button) {
+    button.disabled = true;
+    var prog = el("progress");
+    prog.style.display = "";
+    prog.textContent = "Asking Drive what is in this batch…";
+
+    var listed = await fetch("/api/files?chapter=" + encodeURIComponent(b.chapter) +
+                             "&date=" + encodeURIComponent(b.date))
+      .then(function (r) { return r.json(); });
+    if (!listed.ok) {
+      prog.textContent = "Could not list the batch: " + listed.error;
+      button.disabled = false;
+      return;
+    }
+
+    // One request per photo, so this shows real progress rather than hanging
+    // on a single long call — and a failure costs one photo, not the batch.
+    var files = listed.files || [];
+    for (var i = 0; i < files.length; i++) {
+      prog.textContent = "Downloading " + (i + 1) + " of " + files.length +
+                         " — " + files[i].name;
+      var r = await fetch("/api/fetch-one", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapter: b.chapter, date: b.date,
+                               name: files[i].name, size: files[i].size })
+      }).then(function (x) { return x.json(); });
+      if (!r.ok) {
+        prog.textContent = "Failed on " + files[i].name + ": " + r.error;
+        button.disabled = false;
+        return;
+      }
+    }
+
+    prog.textContent = "Reading the Sheet…";
+    var loaded = await fetch("/api/load", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chapter: b.chapter, date: b.date })
+    }).then(function (r) { return r.json(); });
+
+    prog.style.display = "none";
+    button.disabled = false;
+    if (loaded.ok === false) {
+      prog.style.display = "";
+      prog.textContent = "Could not load the batch: " + loaded.error;
+      return;
+    }
+    render(loaded);
+  }
+
+  function render(b) {
     batch = b;
+    markers = {};
     el("title").textContent = "Review " + b.label;
     el("folder").textContent = b.folder;
     el("grid").innerHTML = "";
+    el("log").textContent = "";
+    el("log").style.display = "none";
+    el("map").style.display = "";
+    el("map").innerHTML = "";
+    if (map) { map.remove(); map = null; }
     b.photos.forEach(function (p) { el("grid").appendChild(tile(p)); });
+    show("review");
     drawMap();
     refresh();
+    el("go").disabled = !b.photos.some(function (p) { return p.selected; });
+  }
 
+  function start(b) {
+    if (b && !b.empty) { render(b); } else { loadQueue(); }
+
+    el("recheck").onclick = loadQueue;
+    el("back").onclick = loadQueue;
     el("all").onclick = function () {
       batch.photos.forEach(function (p) { if (sendable(p)) { p.selected = true; } });
       document.querySelectorAll(".pick input").forEach(function (c) { c.checked = true; });
@@ -352,7 +493,9 @@
       refresh();
     };
     el("go").onclick = run;
-  });
+  }
+
+  fetch("/api/batch").then(function (r) { return r.json(); }).then(start);
 })();
 </script>
 </body>
