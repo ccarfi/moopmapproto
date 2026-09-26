@@ -385,14 +385,9 @@ def main():
         sys.exit('error: set MOOPMAP_ADMIN_TOKEN — the console records results\n'
                  '       in the Sheet, and that is not the token in config.js')
 
-    user = args.user_name or os.environ.get('MAPILLARY_USER')
-    if not user:
-        sys.exit('error: pass --user-name or set MAPILLARY_USER (your Mapillary\n'
-                 '       account, the one `mapillary_tools authenticate` used)')
-
     STATE['token'] = token
-    STATE['user_name'] = user
 
+    # --list only reads Drive, so it must not ask for a Mapillary account.
     if args.list:
         res = drive_call('list-inbox')
         if not res.get('ok'):
@@ -410,6 +405,12 @@ def main():
 
     if not args.folder or not args.sheet:
         sys.exit('error: give a batch folder and --sheet, or use --list')
+
+    user = args.user_name or os.environ.get('MAPILLARY_USER')
+    if not user:
+        sys.exit('error: pass --user-name or set MAPILLARY_USER (your Mapillary\n'
+                 '       account, the one `mapillary_tools authenticate` used)')
+    STATE['user_name'] = user
     STATE['batch'] = build_batch(os.path.abspath(args.folder), args.sheet, args.chapter)
 
     counts = {}
