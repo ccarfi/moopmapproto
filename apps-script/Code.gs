@@ -20,7 +20,10 @@
  *   5. Re-deploy (new version) after any edit here — the /exec URL keeps
  *      serving the old code until you do. This is the #1 source of
  *      "why didn't my change take effect".
- *   6. Run installDigestTrigger() once from the editor to get the daily
+ *   6. Set ADMIN_TOKEN to something only you know — NOT SHARED_TOKEN — and
+ *      put the same value in MOOPMAP_ADMIN_TOKEN where you run the uploads.
+ *      Until you do, mark-uploaded and mark-failed are refused.
+ *   7. Run installDigestTrigger() once from the editor to get the daily
  *      "reports waiting" email. It will ask to authorize sending mail.
  *
  * NOTE ON SECURITY
@@ -48,6 +51,17 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // with "Unknown chapter". That has happened once already, to bwb_colorado.
 // Verify after every deploy:  curl -sL <your /exec URL>
 var CHAPTERS = ['bwb_south_bay', 'bwb_colorado', 'bwb_united_kingdom'];
+
+// Mutating actions (mark-uploaded, mark-failed) require this, and it is NOT
+// SHARED_TOKEN. SHARED_TOKEN ships in config.js in a public repo, which is
+// tolerable while the worst an attacker can do is push junk photos into
+// inbox/ for a human to look at. A write path is different: with a public
+// token anyone could mark rows uploaded, invent cluster ids or overwrite
+// notes, silently corrupting the provenance record.
+//
+// So this lives here and in the operator's MOOPMAP_ADMIN_TOKEN environment
+// variable, and nowhere else. Never commit it.
+var ADMIN_TOKEN = 'PASTE_ADMIN_TOKEN_HERE';
 
 // Where the daily digest goes. Left empty on purpose: it defaults to whoever
 // owns the trigger, so no email address is committed to a public repo. Set it
@@ -83,6 +97,13 @@ function doPost(e) {
 
     var p = JSON.parse(e.postData.contents);
 
+    // Admin actions carry their own token and never touch SHARED_TOKEN.
+    if (p.action === 'mark-uploaded' || p.action === 'mark-failed') {
+      var denied = adminDenied(p);
+      if (denied) { return denied; }
+      return p.action === 'mark-uploaded' ? markUploaded(p) : markFailed(p);
+    }
+
     if (p.token !== SHARED_TOKEN)            { return fail('Bad token'); }
     if (p.website)                           { return fail('Rejected'); }   // honeypot
     if (!p.submissionId)                     { return fail('Missing submissionId'); }
@@ -109,7 +130,12 @@ function doPost(e) {
 
 function doGet() {
   // Handy for confirming a deployment is live without opening the form.
-  return ok({ service: 'moop-report', chapters: CHAPTERS });
+  // adminConfigured is a boolean on purpose — never echo the token itself.
+  return ok({
+    service: 'moop-report',
+    chapters: CHAPTERS,
+    adminConfigured: adminDenied({ adminToken: ADMIN_TOKEN }) === null
+  });
 }
 
 // ----------------------------------------------------------------- drive
@@ -204,6 +230,113 @@ function addMissingHeaders(sheet) {
   if (!missing.length) { return; }
 
   sheet.getRange(1, have.length + 1, 1, missing.length).setValues([missing]);
+}
+
+// ----------------------------------------------------------- write-back
+
+// RUNBOOK.md step 5 asks a human to paste status, timestamp and cluster id per
+// row. It does not reliably happen: after two successful upload runs the whole
+// mapillary_cluster_id column was still empty. That id is the only durable
+// handle joining a Sheet row to what exists on Mapillary — it otherwise lives
+// only in ~/Library on whichever machine ran the upload.
+function adminDenied(p) {
+  if (!ADMIN_TOKEN || ADMIN_TOKEN === 'PASTE_ADMIN_TOKEN_HERE') {
+    return fail('Admin actions are not configured on this deployment');
+  }
+  // Refuse rather than silently accept the public token as an admin token.
+  if (ADMIN_TOKEN === SHARED_TOKEN) {
+    return fail('ADMIN_TOKEN must not equal SHARED_TOKEN');
+  }
+  if (!p || p.adminToken !== ADMIN_TOKEN) { return fail('Bad admin token'); }
+  return null;
+}
+
+function markUploaded(p) {
+  if (!p.clusterId) { return fail('Missing clusterId'); }
+  var when = p.uploadedAt || new Date().toISOString();
+
+  return applyToRows(p, function (set, get) {
+    var already = String(get('mapillary_cluster_id') || '').trim();
+
+    // Never clobber a different cluster id. Two ids on one photo means one of
+    // them is wrong, and which is not something this can work out.
+    if (already && already !== String(p.clusterId)) {
+      return 'conflict: already recorded under cluster ' + already;
+    }
+    if (already === String(p.clusterId) &&
+        String(get('status')).trim() === 'uploaded') {
+      return 'unchanged';
+    }
+
+    set('status', 'uploaded');
+    set('mapillary_uploaded_at', when);
+    set('mapillary_cluster_id', String(p.clusterId));
+    return 'updated';
+  });
+}
+
+function markFailed(p) {
+  if (!p.reason) { return fail('Missing reason'); }
+
+  return applyToRows(p, function (set, get) {
+    var notes = String(get('notes') || '').trim();
+
+    // 'failed' with an empty reason reads as a system fault six months later,
+    // which is the whole point of writing one — but an existing note was put
+    // there by a person and outranks this.
+    if (String(get('status')).trim() === 'failed' && notes) { return 'unchanged'; }
+
+    set('status', 'failed');
+    if (!notes) { set('notes', String(p.reason)); }
+    return 'updated';
+  });
+}
+
+// Shared row-walking. Rows are found by submission_id and columns by header
+// name — appendRow writes positionally, but addMissingHeaders means the live
+// sheet's column order can legitimately differ from HEADERS, and a write to
+// the wrong column corrupts the record it is meant to protect.
+function applyToRows(p, fn) {
+  var ids = p.submissionIds;
+  if (!ids || !ids.length) { return fail('Missing submissionIds'); }
+
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
+  if (!sheet) { return fail('No such sheet tab: ' + SHEET_TAB); }
+
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var iId = head.indexOf('submission_id');
+  if (iId === -1) { return fail('Sheet has no submission_id column'); }
+
+  var result = { updated: [], unchanged: [], notFound: [], conflicts: [] };
+
+  ids.forEach(function (id) {
+    var rowIndex = -1;
+    for (var r = 1; r < values.length; r++) {
+      if (String(values[r][iId]).trim() === String(id).trim()) { rowIndex = r; break; }
+    }
+    // Reported, never swallowed: a typo that silently updates nothing is how
+    // you end up believing the Sheet is current when it is not.
+    if (rowIndex === -1) { result.notFound.push(id); return; }
+
+    var get = function (name) {
+      var c = head.indexOf(name);
+      return c === -1 ? '' : values[rowIndex][c];
+    };
+    var set = function (name, value) {
+      var c = head.indexOf(name);
+      if (c === -1) { return; }
+      sheet.getRange(rowIndex + 1, c + 1).setValue(value);
+      values[rowIndex][c] = value;
+    };
+
+    var outcome = fn(set, get);
+    if (outcome === 'updated')        { result.updated.push(id); }
+    else if (outcome === 'unchanged') { result.unchanged.push(id); }
+    else                              { result.conflicts.push(id + ' — ' + outcome); }
+  });
+
+  return ok(result);
 }
 
 // ---------------------------------------------------------------- digest

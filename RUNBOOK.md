@@ -173,11 +173,37 @@ A `cluster_id` means Mapillary accepted and registered the sequence. No
 
 **5. Close the loop.**
 
-- Move the folder from `inbox/` to `uploaded/`. This is what makes a re-run
-  idempotent — `inbox/` is the work queue, so anything still in it is unsent.
-- In the Sheet, on those rows: set `status` to `uploaded`, stamp
-  `mapillary_uploaded_at`, and paste the `cluster_id` into
-  `mapillary_cluster_id`.
+```bash
+export MOOPMAP_ADMIN_TOKEN='...'      # once per shell; never in this repo
+python3 tools/record_upload.py ./bwb_south_bay/2026-09-24
+```
+
+That reads the `cluster_id` out of `upload_history`, matches it to the batch,
+and sets `status`, `mapillary_uploaded_at` and `mapillary_cluster_id` on every
+row. `--dry-run` shows what it would send.
+
+It finds the cluster by **matching the batch's set of filenames** against each
+history entry, not by taking the newest one — two batches uploaded minutes
+apart would make "newest" wrong, and wrong here records a photo against another
+chapter's sequence. If the filenames appear under two clusters it refuses
+rather than guessing.
+
+For anything that did **not** go up — no position, not a JPEG, a deliberate
+test — say why:
+
+```bash
+python3 tools/record_upload.py . --failed <filename> --reason "no location — Brave denied geolocation"
+```
+
+`--reason` is required. `failed` on its own reads as a system fault when
+someone looks back in six months; "no location — Brave denied geolocation"
+reads as what it was.
+
+**Then** move the folder from `inbox/` to `uploaded/`. That order matters: a
+crash between the two should leave a folder to re-examine, not a cluster id
+that was never recorded. Re-running an upload is cheap; reconstructing a lost
+cluster id is not. `inbox/` is the work queue, so anything still in it is
+unsent.
 
 The cluster id matters more than it looks. It is the only durable handle joining
 a Sheet row to what actually exists on Mapillary, and it otherwise lives solely
@@ -185,10 +211,13 @@ in a local file under `~/Library`, on whichever machine happened to run the
 upload. If you ever need to find, dispute or explain a sequence, that number is
 the thread.
 
-For anything that did **not** go up — no position, wrong chapter, a deliberate
-test — set `status` to `failed` and write why in `notes`. `failed` on its own
-reads as a system fault when someone looks back in six months; "no location —
-Brave denied geolocation" reads as what it was.
+> **`MOOPMAP_ADMIN_TOKEN` is not `SHARED_TOKEN`.** `SHARED_TOKEN` ships in
+> `config.js` in a public repo, which is fine while the worst anyone can do is
+> push junk photos into `inbox/` for a human to look at. A write path is
+> different: with a public token anyone could mark rows uploaded, invent
+> cluster ids, or overwrite `notes`. The admin token lives only in the deployed
+> Apps Script and in your environment. `curl -sL <your /exec>` reports
+> `adminConfigured` so you can check it's set without revealing it.
 
 **6. Confirm.**
 
