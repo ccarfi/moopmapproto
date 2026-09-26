@@ -15,9 +15,10 @@ USE
     export MOOPMAP_ADMIN_TOKEN='...'          # never in this repo
     python3 tools/record_upload.py <batch folder>
 
-    Marking things that can never be uploaded:
+    Marking things that can never be uploaded — no folder needed, it works
+    from the filenames:
 
-    python3 tools/record_upload.py <batch folder> \\
+    python3 tools/record_upload.py \\
         --failed 2026-09-23T14-53-25Z__c0252143__1.png \\
         --reason "PNG screenshot — Mapillary accepts JPEG only"
 
@@ -119,7 +120,13 @@ def report(res):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('folder', help='the batch folder that was uploaded')
+    # Optional, because --failed works entirely from the filenames it is given
+    # and never reads the folder. Requiring it meant typing a bare '.' that was
+    # validated and ignored — and worse, implied the folder scoped the
+    # operation, which someone would eventually rely on.
+    ap.add_argument('folder', nargs='?', default=None,
+                    help='the batch folder that was uploaded '
+                         '(not needed with --failed)')
     ap.add_argument('--desc', default=None, help='desc.json (default: in the folder)')
     ap.add_argument('--failed', nargs='+', metavar='FILE',
                     help='filenames that can never be uploaded')
@@ -137,6 +144,9 @@ def main():
     url = endpoint(repo_root)
 
     if args.failed:
+        if args.folder:
+            print('note: --failed works from the filenames, so %r is ignored'
+                  % args.folder)
         if not args.reason:
             sys.exit('error: --failed needs --reason. "failed" with no reason reads\n'
                      '       as a system fault when someone looks back in six months.')
@@ -148,6 +158,10 @@ def main():
                    'submissionIds': ids, 'reason': args.reason}
         print('mark-failed  %d row(s) — %s' % (len(ids), args.reason))
     else:
+        if not args.folder and not args.desc:
+            sys.exit('error: give the batch folder that was uploaded, or --desc.\n'
+                     '       To mark something unuploadable instead, use '
+                     '--failed <file> --reason "..."')
         desc_path = args.desc or os.path.join(args.folder, 'desc.json')
         if not os.path.exists(desc_path):
             sys.exit('error: no desc.json at %s — run build_desc.py first' % desc_path)

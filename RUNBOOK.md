@@ -278,7 +278,7 @@ For anything that did **not** go up — no position, not a JPEG, a deliberate
 test — say why:
 
 ```bash
-python3 tools/record_upload.py . --failed <filename> --reason "no location — Brave denied geolocation"
+python3 tools/record_upload.py --failed <filename> --reason "no location — Brave denied geolocation"
 ```
 
 `--reason` is required. `failed` on its own reads as a system fault when
