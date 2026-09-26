@@ -83,11 +83,17 @@ which these photos do not have. Use `upload` with a description file instead.
 export MOOPMAP_ADMIN_TOKEN='...'
 export MAPILLARY_USER='<your mapillary username>'
 
-python3 tools/console.py --list                        # what is waiting
-python3 tools/console.py --batch bwb_south_bay 2026-09-25
+python3 tools/console.py
 ```
 
-`--batch` fetches the photos from Drive and reads the Sheet live — **no
+With no arguments it asks Drive what is outstanding. One batch waiting and it
+reviews that one; several and it lists them and asks which. You do not have to
+know the chapter or the date — the queue already does.
+
+`--batch bwb_south_bay 2026-09-25` names one explicitly, and `--list` just
+prints what is waiting.
+
+It fetches the photos from Drive and reads the Sheet live — **no
 download, no unzip, no CSV export.** Files land flat in `~/.moopmap/batches/`,
 so the nested `<date>/<date>/` that a Drive zip produces cannot happen. Fetching
 again skips anything already there at the right size.

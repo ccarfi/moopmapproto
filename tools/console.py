@@ -192,6 +192,50 @@ def fetch_batch(chapter, date, dest):
     return dest
 
 
+def pick_batch():
+    """Work out which batch to review, asking only when it is ambiguous."""
+    res = drive_call('list-inbox')
+    if not res.get('ok'):
+        sys.exit('error: %s' % res.get('error'))
+    batches = res.get('batches') or []
+
+    if not batches:
+        sys.exit('inbox/ is empty — nothing waiting')
+
+    if len(batches) == 1:
+        b = batches[0]
+        print('one batch waiting: %s %s (%d photo%s)'
+              % (b['chapter'], b['date'], b['files'],
+                 '' if b['files'] == 1 else 's'))
+        return [b['chapter'], b['date']]
+
+    print('waiting in inbox/:')
+    for i, b in enumerate(batches, 1):
+        print('  %d) %-20s %-12s %d photo%s'
+              % (i, b['chapter'], b['date'], b['files'],
+                 '' if b['files'] == 1 else 's'))
+
+    # Nothing is picked for you when there is a choice, and nothing is picked
+    # at all without someone to ask.
+    if not sys.stdin.isatty():
+        sys.exit('\nseveral batches waiting — name one with '
+                 '--batch CHAPTER DATE')
+
+    try:
+        answer = input('\nreview which? [1-%d, or enter to quit] ' % len(batches))
+    except (EOFError, KeyboardInterrupt):
+        sys.exit('\nnothing chosen')
+    if not answer.strip():
+        sys.exit('nothing chosen')
+    try:
+        b = batches[int(answer) - 1]
+        if int(answer) < 1:
+            raise ValueError
+    except (ValueError, IndexError):
+        sys.exit('error: %r is not one of the choices' % answer.strip())
+    return [b['chapter'], b['date']]
+
+
 def build_batch(folder, rows, chapter_override):
     accounts = build_desc.load_config(REPO)
     by_key = {a['key']: a for a in accounts}
@@ -462,6 +506,12 @@ def main():
         print('moved %s -> %s' % (date, res.get('to')))
         return
 
+    # No arguments at all: the console already knows what is outstanding, so
+    # making someone read --list and retype a chapter and a date is a
+    # transcription step that buys nothing and can be got wrong.
+    if not args.batch and not args.folder:
+        args.batch = pick_batch()
+
     if args.batch:
         chapter, date = args.batch
         folder = os.path.join(args.cache_dir, chapter, date)
@@ -470,14 +520,12 @@ def main():
         print('  -> %s' % folder)
         rows = rows_from_sheet()
         print('read %d row(s) from the Sheet' % len(rows))
-    elif args.folder:
+    else:
         folder = os.path.abspath(args.folder)
         # A CSV still works, but live rows are the default: an export goes
         # stale the moment anyone touches the Sheet.
         rows = rows_from_csv(args.sheet) if args.sheet else rows_from_sheet()
-    else:
-        sys.exit('error: use --batch CHAPTER DATE, or give a folder, '
-                 'or use --list / --move')
+
 
     user = args.user_name or os.environ.get('MAPILLARY_USER')
     if not user:
