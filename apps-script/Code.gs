@@ -125,10 +125,14 @@ function doPost(e) {
     var p = JSON.parse(e.postData.contents);
 
     // Admin actions carry their own token and never touch SHARED_TOKEN.
-    if (p.action === 'mark-uploaded' || p.action === 'mark-failed') {
+    if (p.action === 'mark-uploaded' || p.action === 'mark-failed' ||
+        p.action === 'list-inbox'    || p.action === 'move-batch') {
       var denied = adminDenied(p);
       if (denied) { return denied; }
-      return p.action === 'mark-uploaded' ? markUploaded(p) : markFailed(p);
+      if (p.action === 'mark-uploaded') { return markUploaded(p); }
+      if (p.action === 'mark-failed')   { return markFailed(p); }
+      if (p.action === 'list-inbox')    { return listInbox(p); }
+      return moveBatch(p);
     }
 
     if (p.token !== SHARED_TOKEN)            { return fail('Bad token'); }
@@ -495,6 +499,93 @@ function overdueRows() {
     });
   }
   return out;
+}
+
+// ------------------------------------------------------------ drive queue
+
+// What is still in inbox/, without opening Drive. inbox/ is the work queue by
+// design, so this is the authoritative answer to "what has nobody uploaded".
+function listInbox(p) {
+  var inbox = existingChild(DriveApp.getFolderById(ROOT_FOLDER_ID), 'inbox');
+  if (!inbox) { return ok({ batches: [] }); }
+
+  var batches = [];
+  var chapters = inbox.getFolders();
+  while (chapters.hasNext()) {
+    var chapter = chapters.next();
+    var dates = chapter.getFolders();
+    while (dates.hasNext()) {
+      var date = dates.next();
+      var n = 0, files = date.getFiles();
+      while (files.hasNext()) { files.next(); n++; }
+      // An empty date folder is left over from a move, not work.
+      if (!n) { continue; }
+      batches.push({
+        chapter: chapter.getName(),
+        date: date.getName(),
+        files: n,
+        url: date.getUrl()
+      });
+    }
+  }
+
+  batches.sort(function (a, b) {
+    return a.chapter === b.chapter ? (a.date < b.date ? -1 : 1)
+                                   : (a.chapter < b.chapter ? -1 : 1);
+  });
+  return ok({ batches: batches });
+}
+
+// inbox/<chapter>/<date>/ to uploaded/ or failed/. With `files`, moves only
+// those files — which is how unuploadable submissions get filed without
+// dragging the whole batch out of the queue.
+function moveBatch(p) {
+  if (!p.chapter || !p.date)  { return fail('Missing chapter or date'); }
+  if (p.to !== 'uploaded' && p.to !== 'failed') {
+    return fail("'to' must be uploaded or failed");
+  }
+  if (!CHAPTERS.hasOwnProperty(p.chapter)) { return fail('Unknown chapter'); }
+
+  var root = DriveApp.getFolderById(ROOT_FOLDER_ID);
+  var inbox = existingChild(root, 'inbox');
+  var chapterFolder = inbox && existingChild(inbox, p.chapter);
+  var source = chapterFolder && existingChild(chapterFolder, p.date);
+  if (!source) {
+    return fail('No such batch: inbox/' + p.chapter + '/' + p.date);
+  }
+
+  var destChapter = child(child(root, p.to), p.chapter);
+
+  if (p.files && p.files.length) {
+    var moved = [], missing = [];
+    p.files.forEach(function (name) {
+      var it = source.getFilesByName(name);
+      if (!it.hasNext()) { missing.push(name); return; }
+      it.next().moveTo(destChapter);
+      moved.push(name);
+    });
+    return ok({ moved: moved, missing: missing,
+                to: p.to + '/' + p.chapter + '/' });
+  }
+
+  // Never merge into an existing destination. Two batches with the same date
+  // in one place is a mess to untangle, and the usual cause is a re-run that
+  // should have been investigated instead.
+  if (existingChild(destChapter, p.date)) {
+    return fail('Destination already exists: ' + p.to + '/' + p.chapter +
+                '/' + p.date + ' — refusing to merge');
+  }
+
+  source.moveTo(destChapter);
+  return ok({ moved: p.date, to: p.to + '/' + p.chapter + '/' });
+}
+
+// Like child(), but never creates. Asking "is this there" must not have the
+// side effect of making it so.
+function existingChild(parent, name) {
+  if (!parent) { return null; }
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : null;
 }
 
 // ---------------------------------------------------------------- digest

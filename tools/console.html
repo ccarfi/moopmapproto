@@ -311,9 +311,24 @@
       (r.notFound || []).forEach(function (c) { log("     not found: " + c); });
     });
 
+    if (rec.heldBack) {
+      log("");
+      log("NOT moving anything in Drive — the Sheet write did not fully land:");
+      rec.heldBack.forEach(function (t) { log("  " + t); });
+      log("inbox/ still holds this batch. Sort the Sheet out, then move it.");
+      el("go").textContent = "Recorded, not filed";
+      return;
+    }
+
+    (rec.moved || []).forEach(function (m) {
+      var r = m.result || {};
+      if (!r.ok) { log("  move to " + m.to + " failed: " + r.error); return; }
+      log("  moved to " + r.to + (r.moved && r.moved.length !== undefined && typeof r.moved !== "string"
+            ? " (" + r.moved.length + " file(s))" : ""));
+    });
+
     log("");
-    log("done. now move the folder in Drive:");
-    log("  inbox/" + batch.chapter + "/  ->  uploaded/" + batch.chapter + "/");
+    log("done — out of the queue.");
     el("go").textContent = "Uploaded";
   }
 

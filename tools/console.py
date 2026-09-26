@@ -231,6 +231,11 @@ def do_upload(names):
             'names': [p['name'] for p in chosen], 'log': log}
 
 
+def drive_call(action, **kw):
+    kw.update(action=action, adminToken=STATE['token'])
+    return record_upload.post(record_upload.endpoint(REPO), kw)
+
+
 def do_record(uploaded_names, cluster, failures):
     url = record_upload.endpoint(REPO)
     token = STATE['token']
@@ -255,7 +260,46 @@ def do_record(uploaded_names, cluster, failures):
             'submissionIds': ids, 'reason': reason})
         out.append({'action': 'mark-failed', 'reason': reason, 'result': res})
 
-    return {'ok': True, 'steps': out}
+    # The Sheet is written before anything moves in Drive. A crash between the
+    # two should leave a folder to re-examine, not a cluster id that cannot be
+    # reconstructed — it lives only in upload_history on this machine.
+    #
+    # And a write that did not fully land means the Sheet is not what we think
+    # it is, so emptying the queue on top of that would compound it.
+    trouble = []
+    for step in out:
+        r = step.get('result') or {}
+        if not r.get('ok'):
+            trouble.append('%s: %s' % (step['action'], r.get('error')))
+        trouble += list(r.get('conflicts') or [])
+        trouble += ['not found: %s' % i for i in (r.get('notFound') or [])]
+
+    if trouble:
+        return {'ok': True, 'steps': out, 'moved': None, 'heldBack': trouble}
+
+    return {'ok': True, 'steps': out, 'moved': do_moves(failures)}
+
+
+def do_moves(failures):
+    """File what could not be uploaded, then take the batch out of the queue.
+
+    No confirmation on either: both are undoable and happen every run, and a
+    prompt here would train the reflex that gets the upload confirmation
+    clicked through too.
+    """
+    batch = STATE['batch']
+    date = os.path.basename(batch['folder'].rstrip(os.sep))
+    done = []
+
+    if failures:
+        res = drive_call('move-batch', chapter=batch['chapter'], date=date,
+                         to='failed', files=[f['name'] for f in failures])
+        done.append({'to': 'failed', 'result': res})
+
+    res = drive_call('move-batch', chapter=batch['chapter'], date=date,
+                     to='uploaded')
+    done.append({'to': 'uploaded', 'result': res})
+    return done
 
 
 # -------------------------------------------------------------------- server
@@ -325,8 +369,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('folder', help='the batch folder to review')
-    ap.add_argument('--sheet', required=True, help='CSV export of the submissions sheet')
+    ap.add_argument('folder', nargs='?', default=None,
+                    help='the batch folder to review')
+    ap.add_argument('--list', action='store_true',
+                    help="print what is still in Drive's inbox/ and exit")
+    ap.add_argument('--sheet', help='CSV export of the submissions sheet')
     ap.add_argument('--chapter', default=None, help='override the chapter inferred from the path')
     ap.add_argument('--user-name', default=None, help='Mapillary username (default: $MAPILLARY_USER)')
     ap.add_argument('--port', type=int, default=8777)
@@ -345,6 +392,24 @@ def main():
 
     STATE['token'] = token
     STATE['user_name'] = user
+
+    if args.list:
+        res = drive_call('list-inbox')
+        if not res.get('ok'):
+            sys.exit('error: %s' % res.get('error'))
+        batches = res.get('batches') or []
+        if not batches:
+            print('inbox/ is empty — nothing waiting')
+            return
+        print('waiting in inbox/:')
+        for b in batches:
+            print('  %-20s %-12s %d photo%s'
+                  % (b['chapter'], b['date'], b['files'],
+                     '' if b['files'] == 1 else 's'))
+        return
+
+    if not args.folder or not args.sheet:
+        sys.exit('error: give a batch folder and --sheet, or use --list')
     STATE['batch'] = build_batch(os.path.abspath(args.folder), args.sheet, args.chapter)
 
     counts = {}

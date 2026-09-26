@@ -21,6 +21,18 @@ memory.
 
 **1. Pull down one chapter/date folder from Drive.**
 
+To see what is waiting without opening Drive:
+
+```bash
+python3 tools/console.py --list
+```
+
+```
+waiting in inbox/:
+  bwb_south_bay        2026-09-25   7 photos
+```
+
+
 ```
 MoopMap Uploads/inbox/bwb_south_bay/2026-08-23/
 ```
@@ -75,8 +87,14 @@ python3 tools/console.py ./bwb_south_bay/2026-09-24 --sheet ~/Downloads/submissi
 
 Opens a local page showing every photo in the batch with its position, a map,
 and a tick box. Press Upload and it builds the description file, uploads only
-what you ticked, and records the result in the Sheet — steps 4 and 5 below in
-one pass.
+what you ticked, records the result in the Sheet, files anything unuploadable
+into `failed/<chapter>/`, and moves the batch to `uploaded/` — steps 4 and 5
+below in one pass.
+
+**If the Sheet write does not fully land, nothing moves in Drive.** A conflict
+or an unknown submission id means the Sheet is not what you think it is, and
+emptying the queue on top of that compounds it. The batch stays in `inbox/`
+and the console says why.
 
 **Why it exists:** the CLI is all-or-nothing. `build_desc.py` refuses the whole
 batch if any photo is out of bounds, and `--force` suppresses the check for
