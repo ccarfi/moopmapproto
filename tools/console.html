@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Review batch — MOOP Map</title>
+<title>MOOP Map Admin</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root {
@@ -373,7 +373,7 @@
 
   async function loadQueue() {
     show("queue");
-    el("title").textContent = "MOOP Map";
+    el("title").textContent = "MOOP Map Admin";
     el("counts").textContent = "";
     el("queue-note").textContent = "Checking Drive…";
     el("queue-list").innerHTML = "";
@@ -471,7 +471,7 @@
   function render(b) {
     batch = b;
     markers = {};
-    el("title").textContent = "Review " + b.label;
+    el("title").textContent = "MOOP Map Admin — " + b.label;
     el("folder").textContent = b.folder;
     el("grid").innerHTML = "";
     el("log").textContent = "";

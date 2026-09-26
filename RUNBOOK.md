@@ -77,7 +77,7 @@ which these photos do not have. Use `upload` with a description file instead.
 > with no device position (Brave silently denies geolocation) cannot be placed
 > by any means and has to go to `failed/`.
 
-### Or review it in the console
+### Or use MOOP Map Admin
 
 ```bash
 export MOOPMAP_ADMIN_TOKEN='...'
@@ -86,7 +86,10 @@ export MAPILLARY_USER='<your mapillary username>'
 python3 tools/console.py          # start it once, leave it running
 ```
 
-Then work in the page. It opens on **the queue**: what is still sitting in
+That is the operator side — **MOOP Map Admin**, local only. It is not
+moopmap.org, which is the public map, and the two share nothing but the data.
+
+Then work in **MOOP Map Admin** at <http://127.0.0.1:8777>. It opens on **the queue**: what is still sitting in
 `inbox/`, with a **Download and review** button per batch. Pick one, review it,
 upload, and it drops back to the queue with that batch gone. **Check Drive
 again** re-asks without restarting anything.

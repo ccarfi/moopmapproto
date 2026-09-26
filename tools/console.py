@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Review a batch photo by photo, then upload and record what you chose.
+"""MOOP Map Admin — review a batch photo by photo, then upload and record.
 
 WHY THIS EXISTS
     The CLI path is all-or-nothing. build_desc.py refuses a whole batch if any
@@ -622,7 +622,7 @@ def serve(args):
               'will not')
 
     url = 'http://127.0.0.1:%d/' % args.port
-    print('open %s   (leave this running; ctrl-c to stop)' % url)
+    print('MOOP Map Admin: %s   (leave this running; ctrl-c to stop)' % url)
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
