@@ -54,6 +54,12 @@ Edit `CHAPTERS` in `Code.gs`:
 var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom', 'bwb_scotland'];
 ```
 
+**Commit that same edit to `apps-script/Code.gs` in the repo.** The repo copy
+is not what runs, so it is easy to skip — and then the next person to paste the
+repo file over the live script silently reverts the allowlist and real
+submissions start failing with `Unknown chapter`. This has already happened
+once, to `bwb_colorado`.
+
 Then **Deploy → Manage deployments → pencil → Version: New version → Deploy**.
 
 > **Not "New deployment".** That mints a brand-new `/exec` URL and leaves the old

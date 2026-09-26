@@ -40,7 +40,14 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Must match the keys in CONFIG.accounts. A submission naming anything else is
 // rejected: the chapter decides which Mapillary organization the photo is
 // eventually uploaded under, so a bad value would misfile it.
-var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom'];
+//
+// KEEP THIS FILE IN STEP WITH THE DEPLOYED SCRIPT. Editing the live script in
+// the Apps Script editor without committing the same change here leaves the
+// repo copy stale, and the next person who pastes this file over the live one
+// silently reverts the allowlist — which drops real submissions on the floor
+// with "Unknown chapter". That has happened once already, to bwb_colorado.
+// Verify after every deploy:  curl -sL <your /exec URL>
+var CHAPTERS = ['bwb_south_bay', 'bwb_colorado', 'bwb_united_kingdom'];
 
 // Where the daily digest goes. Left empty on purpose: it defaults to whoever
 // owns the trigger, so no email address is committed to a public repo. Set it
