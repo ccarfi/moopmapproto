@@ -219,14 +219,29 @@ the thread.
 > Apps Script and in your environment. `curl -sL <your /exec>` reports
 > `adminConfigured` so you can check it's set without revealing it.
 
-**6. Confirm.**
+**6. Confirmation is automatic.**
 
-Mapillary processing takes a while — expect hours, sometimes longer. Once
-done, the photos appear on the map with no code change, because they arrive
-through the same `organization_id` query that already drives it.
+`confirmUploads()` in the Apps Script sweeps every 6 hours, and flips rows from
+`uploaded` to `live` once the imagery is actually visible. Anything still
+unconfirmed after `CONFIRM_OVERDUE_DAYS` (3) shows up in the daily digest.
 
-Check at **<https://moopmap.org/?refresh=1>** — the `?refresh=1` bypasses the
-session cache, which otherwise serves the counts from before the upload.
+So `uploaded` means "Mapillary accepted the sequence" and `live` means "it is
+on the map". They are not the same, and the gap is hours.
+
+> **It matches on capture time, not cluster id.** `mapillary_tools` records a
+> numeric `cluster_id` (`1771855540796619`); the Graph API reports a sequence
+> id (`34UFCwEdWaLpRDVJcoqTg9`). They are different identifiers and do not
+> join — checked against live data. `captured_at` does, because it comes from
+> `MAPCaptureTime`, which `build_desc.py` takes from the filename stamp. That
+> makes confirmation per photo rather than per batch, and it works for rows
+> that predate the `mapillary_cluster_id` column.
+
+A failed Mapillary fetch leaves rows alone rather than reporting them missing:
+an outage must not look like imagery that never appeared.
+
+To look yourself: **<https://moopmap.org/?refresh=1>** — the `?refresh=1`
+bypasses the session cache, which otherwise serves the counts from before the
+upload.
 
 ## When this becomes automated
 
@@ -234,6 +249,8 @@ The pieces that make that a scripting job rather than a redesign:
 
 - `inbox/` is a queue and `uploaded/` is the archive, so "what's outstanding"
   is a directory listing.
+- Status is a lifecycle, not a flag: `pending` -> `uploaded` -> `live`, with
+  `failed` off to the side. Each step is independently checkable.
 - Chapter sits above date in the tree, so a batch is already scoped to one
   organization key.
 - The Sheet carries `status` per submission, so progress survives a crash

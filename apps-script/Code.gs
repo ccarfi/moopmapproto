@@ -40,6 +40,15 @@ var SHEET_TAB      = 'submissions';
 
 var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.token
 
+// STATUS LIFECYCLE
+//   pending   submitted, not yet uploaded
+//   uploaded  Mapillary accepted the sequence (a cluster_id came back)
+//   live      the imagery is actually visible on the map
+//   failed    cannot be uploaded; notes says why
+//
+// 'uploaded' is not 'live'. Processing takes hours, and a sequence Mapillary
+// accepts can still fail to appear — which nothing would otherwise notice.
+//
 // Must match the keys in CONFIG.accounts. A submission naming anything else is
 // rejected: the chapter decides which Mapillary organization the photo is
 // eventually uploaded under, so a bad value would misfile it.
@@ -50,7 +59,25 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // silently reverts the allowlist — which drops real submissions on the floor
 // with "Unknown chapter". That has happened once already, to bwb_colorado.
 // Verify after every deploy:  curl -sL <your /exec URL>
-var CHAPTERS = ['bwb_south_bay', 'bwb_colorado', 'bwb_united_kingdom'];
+var CHAPTERS = {
+  bwb_south_bay:      '1605841191131530',
+  bwb_colorado:       '1581190229640795',
+  bwb_united_kingdom: '2898722160461721'
+};
+
+// Read-only Mapillary client token — the same one in config.js, duplicated
+// because Apps Script cannot read that file. It is public by design and can
+// only read public imagery. An UPLOAD token must never appear here.
+//
+// The org ids above must match CONFIG.accounts. Nothing enforces that, so
+// confirm after adding a chapter: curl -sL <your /exec> lists what this file
+// believes, and it is the same drift that once dropped bwb_colorado.
+var MAPILLARY_TOKEN = 'MLY|38185652681048683|1939dcd6b0775816788bca3a3f9b8935';
+
+// How long a row may sit accepted-but-not-visible before the digest complains.
+// Processing is routinely hours; too tight a threshold produces false alarms,
+// which is how a daily mail gets filtered.
+var CONFIRM_OVERDUE_DAYS = 3;
 
 // Mutating actions (mark-uploaded, mark-failed) require this, and it is NOT
 // SHARED_TOKEN. SHARED_TOKEN ships in config.js in a public repo, which is
@@ -86,7 +113,7 @@ var HEADERS = [
   'submission_id', 'bwb_chapter', 'received_at_utc', 'file_names', 'photo_count',
   'device_lat', 'device_lng', 'device_accuracy_m', 'position_source',
   'in_chapter_bounds', 'user_agent', 'status', 'mapillary_uploaded_at',
-  'notes', 'mapillary_cluster_id'
+  'notes', 'mapillary_cluster_id', 'mapillary_confirmed_at'
 ];
 
 // -------------------------------------------------------------- endpoints
@@ -107,7 +134,7 @@ function doPost(e) {
     if (p.token !== SHARED_TOKEN)            { return fail('Bad token'); }
     if (p.website)                           { return fail('Rejected'); }   // honeypot
     if (!p.submissionId)                     { return fail('Missing submissionId'); }
-    if (CHAPTERS.indexOf(p.bwb_chapter) === -1) { return fail('Unknown chapter'); }
+    if (!CHAPTERS.hasOwnProperty(p.bwb_chapter)) { return fail('Unknown chapter'); }
     if (!p.dataBase64)                       { return fail('Missing photo data'); }
     if (p.index > MAX_PHOTOS)                { return fail('Too many photos'); }
     if (p.size && p.size > MAX_BYTES)        { return fail('Photo too large'); }
@@ -133,7 +160,7 @@ function doGet() {
   // adminConfigured is a boolean on purpose — never echo the token itself.
   return ok({
     service: 'moop-report',
-    chapters: CHAPTERS,
+    chapters: Object.keys(CHAPTERS),
     adminConfigured: adminDenied({ adminToken: ADMIN_TOKEN }) === null
   });
 }
@@ -263,8 +290,10 @@ function markUploaded(p) {
     if (already && already !== String(p.clusterId)) {
       return 'conflict: already recorded under cluster ' + already;
     }
+    var status = String(get('status')).trim();
+    // 'live' is further along than 'uploaded'; re-recording must not demote it.
     if (already === String(p.clusterId) &&
-        String(get('status')).trim() === 'uploaded') {
+        (status === 'uploaded' || status === 'live')) {
       return 'unchanged';
     }
 
@@ -339,6 +368,135 @@ function applyToRows(p, fn) {
   return ok(result);
 }
 
+// --------------------------------------------------------------- confirm
+
+// 'uploaded' only means Mapillary accepted the sequence. Processing takes
+// hours, and a sequence that is accepted and then fails to process would be
+// invisible to every other check: the digest counts only 'pending', and
+// build_desc.py treats 'uploaded' as done.
+//
+// MATCHING IS BY CAPTURE TIME, NOT CLUSTER ID. mapillary_tools records a
+// numeric cluster_id (1771855540796619); the Graph API reports a sequence id
+// (34UFCwEdWaLpRDVJcoqTg9). They are different identifiers and do not join —
+// verified against live data. What does join is captured_at, which comes from
+// MAPCaptureTime, which build_desc.py takes from the filename stamp. That is
+// unique per submission, so confirmation is per photo rather than per batch,
+// and it works for the 2026-09-12 rows that predate the cluster_id column.
+function confirmUploads() {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
+  if (!sheet || sheet.getLastRow() < 2) { return { confirmed: 0, waiting: 0 }; }
+
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var iStatus = head.indexOf('status'),
+      iChapter = head.indexOf('bwb_chapter'),
+      iFiles = head.indexOf('file_names');
+  if (iStatus === -1 || iChapter === -1 || iFiles === -1) {
+    return { confirmed: 0, waiting: 0 };
+  }
+
+  var pendingByChapter = {};
+  for (var r = 1; r < values.length; r++) {
+    if (String(values[r][iStatus]).trim() !== 'uploaded') { continue; }
+    var ch = String(values[r][iChapter]).trim();
+    if (!CHAPTERS[ch]) { continue; }
+    (pendingByChapter[ch] = pendingByChapter[ch] || []).push(r);
+  }
+
+  var confirmed = 0, waiting = 0, now = new Date().toISOString();
+  var iConfirmed = head.indexOf('mapillary_confirmed_at');
+
+  Object.keys(pendingByChapter).forEach(function (ch) {
+    var liveStamps = captureTimesFor(CHAPTERS[ch]);
+    if (liveStamps === null) { return; }   // fetch failed; try again next run
+
+    pendingByChapter[ch].forEach(function (r) {
+      var stamp = stampOf(String(values[r][iFiles]));
+      if (stamp && liveStamps[stamp]) {
+        sheet.getRange(r + 1, iStatus + 1).setValue('live');
+        if (iConfirmed !== -1) {
+          sheet.getRange(r + 1, iConfirmed + 1).setValue(now);
+        }
+        confirmed++;
+      } else {
+        waiting++;
+      }
+    });
+  });
+
+  return { confirmed: confirmed, waiting: waiting };
+}
+
+// 2026-09-24T22-53-25Z__<submission id>__1.jpg -> 2026-09-24T22-53-25Z
+function stampOf(fileNames) {
+  var m = String(fileNames).match(/(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)/);
+  return m ? m[1] : null;
+}
+
+// Every capture time this organization has live, as a lookup. Returns null on
+// a fetch failure so the caller leaves rows alone rather than reporting them
+// missing — an outage must not look like imagery that never appeared.
+function captureTimesFor(orgId) {
+  var url = 'https://graph.mapillary.com/images?organization_id=' + orgId +
+            '&fields=id,captured_at&limit=500&access_token=' + MAPILLARY_TOKEN;
+  var out = {}, pages = 0;
+
+  while (url && pages < 20) {
+    var res;
+    try {
+      res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    } catch (e) { return null; }
+    if (res.getResponseCode() !== 200) { return null; }
+
+    var body;
+    try { body = JSON.parse(res.getContentText()); } catch (e) { return null; }
+
+    (body.data || []).forEach(function (im) {
+      if (im.captured_at) {
+        out[Utilities.formatDate(new Date(im.captured_at), 'UTC',
+              "yyyy-MM-dd'T'HH-mm-ss'Z'")] = true;
+      }
+    });
+
+    url = body.paging && body.paging.next ? body.paging.next : null;
+    pages++;
+  }
+  return out;
+}
+
+// Accepted long enough ago that "still processing" has stopped being the
+// likely explanation.
+function overdueRows() {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
+  if (!sheet || sheet.getLastRow() < 2) { return []; }
+
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var iStatus = head.indexOf('status'),
+      iWhen = head.indexOf('mapillary_uploaded_at'),
+      iChapter = head.indexOf('bwb_chapter'),
+      iFiles = head.indexOf('file_names');
+  if (iStatus === -1) { return []; }
+
+  var cutoff = Date.now() - CONFIRM_OVERDUE_DAYS * 86400000;
+  var out = [];
+
+  for (var r = 1; r < values.length; r++) {
+    if (String(values[r][iStatus]).trim() !== 'uploaded') { continue; }
+    var when = iWhen === -1 ? '' : String(values[r][iWhen] || '');
+    var t = Date.parse(when);
+    // No timestamp means we cannot age it, so leave it out rather than
+    // alarming about something that may be minutes old.
+    if (isNaN(t) || t > cutoff) { continue; }
+    out.push({
+      chapter: iChapter === -1 ? '(unknown)' : String(values[r][iChapter]),
+      files: iFiles === -1 ? '' : String(values[r][iFiles]),
+      days: Math.floor((Date.now() - t) / 86400000)
+    });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- digest
 
 // Reports only reach the map when a human runs RUNBOOK.md. Nothing otherwise
@@ -354,11 +512,20 @@ function applyToRows(p, fn) {
 // for your own edits, and this script runs as the owner, so every row it writes
 // is the owner's edit. Such a rule would look configured and do nothing.
 function dailyDigest() {
+  // Reconcile first, so the digest never reports something as waiting that
+  // went live overnight.
+  confirmUploads();
+
   var rows = pendingRows();
+  var overdue = overdueRows();
 
   // Silence has to mean "queue clear", or the mail becomes noise and gets
-  // filtered, which is the failure this is meant to prevent.
-  if (!rows.length) { return; }
+  // filtered, which is the failure this is meant to prevent. Overdue
+  // confirmations break the silence too — an upload that never appeared is
+  // exactly the thing nobody would otherwise notice.
+  if (!rows.length && !overdue.length) { return; }
+
+  if (!rows.length) { return overdueOnly(overdue); }
 
   var uploadable = rows.filter(function (r) { return !r.blocked; });
   var blocked    = rows.filter(function (r) { return r.blocked; });
@@ -395,6 +562,8 @@ function dailyDigest() {
     blocked.forEach(function (r) { lines.push('  ' + r.files + ' — ' + r.why); });
   }
 
+  appendOverdue(lines, overdue);
+
   lines.push('');
   lines.push('Run: RUNBOOK.md');
   lines.push('Sheet: ' + SpreadsheetApp.openById(SHEET_ID).getUrl());
@@ -404,6 +573,33 @@ function dailyDigest() {
     'MOOP Map — ' + uploadable.length + ' report' + (uploadable.length === 1 ? '' : 's') + ' waiting',
     lines.join('\n')
   );
+}
+
+// Uploaded, accepted, and still not visible well past the point where
+// "still processing" explains it. Worth saying loudly: the imagery may simply
+// never have appeared, and no other check looks at this.
+function appendOverdue(lines, overdue) {
+  if (!overdue.length) { return; }
+  lines.push('');
+  lines.push(overdue.length + ' uploaded but still not on the map after ' +
+             CONFIRM_OVERDUE_DAYS + ' days:');
+  overdue.forEach(function (r) {
+    lines.push('  ' + r.chapter + ' — ' + r.files + ' (' + r.days + ' days)');
+  });
+  lines.push('  Check the sequence on Mapillary before re-uploading.');
+}
+
+function overdueOnly(overdue) {
+  var lines = ['Nothing waiting to upload, but some earlier uploads have not ' +
+               'appeared on the map.'];
+  appendOverdue(lines, overdue);
+  lines.push('');
+  lines.push('Sheet: ' + SpreadsheetApp.openById(SHEET_ID).getUrl());
+
+  MailApp.sendEmail(recipient(),
+    'MOOP Map — ' + overdue.length + ' upload' +
+    (overdue.length === 1 ? '' : 's') + ' not showing',
+    lines.join('\n'));
 }
 
 // Read by header name rather than by position. appendRow writes positionally,
@@ -471,11 +667,16 @@ function recipient() {
 // and leaves you with two digests a day and no obvious cause.
 function installDigestTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'dailyDigest') { ScriptApp.deleteTrigger(t); }
+    var fn = t.getHandlerFunction();
+    if (fn === 'dailyDigest' || fn === 'confirmUploads') { ScriptApp.deleteTrigger(t); }
   });
   ScriptApp.newTrigger('dailyDigest').timeBased().atHour(8).everyDays(1).create();
-  return 'Daily digest installed — runs about 08:00 in ' +
-         Session.getScriptTimeZone() + ', and stays silent when nothing is pending.';
+  // More often than the digest: processing finishes at no particular hour, and
+  // a row confirmed at noon should not read as waiting until tomorrow morning.
+  ScriptApp.newTrigger('confirmUploads').timeBased().everyHours(6).create();
+  return 'Installed: daily digest about 08:00 in ' + Session.getScriptTimeZone() +
+         ', and a confirmation sweep every 6 hours. The digest stays silent ' +
+         'when nothing is pending and nothing is overdue.';
 }
 
 // --------------------------------------------------------------- replies

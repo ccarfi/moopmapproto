@@ -51,8 +51,17 @@ chapter nobody can select yet is harmless; the reverse is not.
 Edit `CHAPTERS` in `Code.gs`:
 
 ```javascript
-var CHAPTERS = ['bwb_south_bay', 'bwb_united_kingdom', 'bwb_scotland'];
+var CHAPTERS = {
+  bwb_south_bay:      '1605841191131530',
+  bwb_united_kingdom: '2898722160461721',
+  bwb_scotland:       '1234567890'          // the new organization key
+};
 ```
+
+The org key is needed here as well as in `config.js` — `confirmUploads()` asks
+Mapillary what is live for each chapter, and Apps Script cannot read
+`config.js`. **The two must agree.** Nothing enforces it, and a mismatch means
+that chapter's photos never get confirmed.
 
 **Commit that same edit to `apps-script/Code.gs` in the repo.** The repo copy
 is not what runs, so it is easy to skip — and then the next person to paste the

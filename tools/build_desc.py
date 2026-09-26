@@ -139,7 +139,8 @@ def main():
             mismatched.append((name, sheet_chapter))
             continue
 
-        if (row.get('status') or '').strip() == 'uploaded':
+        # 'live' is further along than 'uploaded' — both mean don't re-send.
+        if (row.get('status') or '').strip() in ('uploaded', 'live'):
             already.append(name)
 
         lat, lon = (row.get('device_lat') or '').strip(), (row.get('device_lng') or '').strip()
