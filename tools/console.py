@@ -373,6 +373,8 @@ def main():
                     help='the batch folder to review')
     ap.add_argument('--list', action='store_true',
                     help="print what is still in Drive's inbox/ and exit")
+    ap.add_argument('--move', nargs=3, metavar=('CHAPTER', 'DATE', 'TO'),
+                    help='move one batch out of inbox/ into uploaded/ or failed/')
     ap.add_argument('--sheet', help='CSV export of the submissions sheet')
     ap.add_argument('--chapter', default=None, help='override the chapter inferred from the path')
     ap.add_argument('--user-name', default=None, help='Mapillary username (default: $MAPILLARY_USER)')
@@ -403,8 +405,18 @@ def main():
                      '' if b['files'] == 1 else 's'))
         return
 
+    # For batches the console did not upload itself — anything finished before
+    # move-batch existed, which is how inbox/ drifts out of step with the Sheet.
+    if args.move:
+        chapter, date, to = args.move
+        res = drive_call('move-batch', chapter=chapter, date=date, to=to)
+        if not res.get('ok'):
+            sys.exit('error: %s' % res.get('error'))
+        print('moved %s -> %s' % (date, res.get('to')))
+        return
+
     if not args.folder or not args.sheet:
-        sys.exit('error: give a batch folder and --sheet, or use --list')
+        sys.exit('error: give a batch folder and --sheet, or use --list, --move')
 
     user = args.user_name or os.environ.get('MAPILLARY_USER')
     if not user:
