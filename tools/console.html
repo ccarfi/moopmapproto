@@ -62,6 +62,14 @@
   .b-unusable, .b-blocked { background: #fee2e2; color: var(--bad); }
   .b-done { background: #eef0f3; color: var(--muted); }
   .why { font-size: 12px; color: var(--warn); }
+  .tile-top { display: flex; align-items: center; gap: 8px; }
+  .tile-top .badge { flex: 1; }
+  .bin {
+    flex: none; border: none; background: none; cursor: pointer; padding: 2px 4px;
+    font-size: 15px; line-height: 1; color: var(--muted); border-radius: 6px;
+  }
+  .bin:hover { background: #fee2e2; color: var(--bad); }
+  .tile.gone { opacity: .4; pointer-events: none; }
   .dead .why, .blocked .why { color: var(--bad); }
   #log {
     margin-top: 20px; background: #11131a; color: #d6dae3; border-radius: 12px;
@@ -177,10 +185,24 @@
     var body = document.createElement("div");
     body.className = "body";
 
+    var top = document.createElement("div");
+    top.className = "tile-top";
+
     var badge = document.createElement("span");
     badge.className = "badge b-" + p.state;
     badge.textContent = LABEL[p.state];
-    body.appendChild(badge);
+    top.appendChild(badge);
+
+    var bin = document.createElement("button");
+    bin.className = "bin";
+    bin.type = "button";
+    bin.title = "Remove this submission entirely";
+    bin.setAttribute("aria-label", "Remove " + p.name + " entirely");
+    bin.textContent = "🗑";
+    bin.onclick = function () { remove(p, d); };
+    top.appendChild(bin);
+
+    body.appendChild(top);
 
     if (sendable(p)) {
       var lab = document.createElement("label");
@@ -264,6 +286,54 @@
       map.fitBounds(pts.map(function (p) { return [p.lat, p.lng]; }),
                     { padding: [30, 30], maxZoom: 16 });
     }, 250);
+  }
+
+  async function remove(p, tileEl) {
+    var published = p.state === "done" || p.state === "unrecorded";
+
+    // The one place a hard confirmation belongs: this is destructive and
+    // cannot be undone from here. Everything else in this tool is reversible,
+    // which is why nothing else asks.
+    var warning =
+      "Remove this submission entirely?\n\n" + p.name + "\n\n" +
+      "The photo goes to Drive's trash, the Sheet row is deleted, and the " +
+      "local copy is removed.";
+    if (published) {
+      warning += "\n\nWARNING: this one is already on Mapillary. Removing it " +
+                 "here does NOT take it off Mapillary — the imagery stays " +
+                 "public until you request deletion from them directly.";
+    }
+    if (!window.confirm(warning)) { return; }
+
+    var reason = window.prompt(
+      "Why is it being removed? This is recorded, and 'because I said so' " +
+      "reads as a bug six months from now.",
+      "inappropriate content");
+    if (!reason || !reason.trim()) { return; }
+
+    tileEl.classList.add("gone");
+    var res = await fetch("/api/remove", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: p.name, reason: reason.trim() })
+    }).then(function (r) { return r.json(); });
+
+    if (!res.ok) {
+      tileEl.classList.remove("gone");
+      log("REMOVAL FAILED: " + res.error);
+      return;
+    }
+
+    tileEl.remove();
+    batch.photos = batch.photos.filter(function (x) { return x.name !== p.name; });
+    refresh();
+
+    log("removed " + p.name);
+    log("  trashed in Drive: " + (res.trashed || []).join(", ") || "  (no file found)");
+    log("  Sheet row deleted, tombstone written to the 'removed' tab");
+    if (res.stillPublicOnMapillary) {
+      log("  STILL PUBLIC ON MAPILLARY — cluster " + (res.cluster || "unknown"));
+      log("  This tool cannot unpublish it. Request deletion from Mapillary.");
+    }
   }
 
   async function run() {

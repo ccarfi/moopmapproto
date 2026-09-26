@@ -337,6 +337,38 @@ def do_upload(names):
             'names': [p['name'] for p in chosen], 'log': log}
 
 
+def do_remove(name, reason):
+    """Take one submission out of the system.
+
+    The local cached copy goes too. Leaving it behind would mean the next
+    person to open this folder sees an image the Sheet says was removed, which
+    is exactly the confusion removal is supposed to end.
+    """
+    if not name:   return {'ok': False, 'error': 'no photo named'}
+    if not reason: return {'ok': False, 'error': 'a reason is required'}
+
+    batch = STATE.get('batch') or {}
+    photo = next((p for p in batch.get('photos', []) if p['name'] == name), None)
+    if not photo:
+        return {'ok': False, 'error': 'not in this batch: %s' % name}
+
+    res = drive_call('remove-submission', submissionId=photo['sid'],
+                     reason=reason, removedBy='admin')
+    if not res.get('ok'):
+        return res
+
+    local = os.path.join(batch['folder'], name)
+    try:
+        if os.path.exists(local):
+            os.remove(local)
+            res['localDeleted'] = True
+    except OSError as e:
+        res['localError'] = str(e)
+
+    batch['photos'] = [p for p in batch.get('photos', []) if p['name'] != name]
+    return res
+
+
 def drive_call(action, **kw):
     kw.update(action=action, adminToken=STATE['token'])
     return record_upload.post(record_upload.endpoint(REPO), kw)
@@ -494,6 +526,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except SystemExit as e:
                 return self._send(200, {'ok': False, 'error': str(e)})
             return self._send(200, STATE['batch'])
+
+        if path == '/api/remove':
+            try:
+                return self._send(200, do_remove(payload.get('name'),
+                                                 payload.get('reason')))
+            except Exception as e:                      # noqa: BLE001
+                return self._send(200, {'ok': False, 'error': str(e)})
 
         if path == '/api/upload':
             try:

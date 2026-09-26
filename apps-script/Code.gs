@@ -127,7 +127,8 @@ function doPost(e) {
     // Admin actions carry their own token and never touch SHARED_TOKEN.
     if (p.action === 'mark-uploaded' || p.action === 'mark-failed' ||
         p.action === 'list-inbox'    || p.action === 'move-batch' ||
-        p.action === 'fetch-file'    || p.action === 'sheet-rows') {
+        p.action === 'fetch-file'    || p.action === 'sheet-rows' ||
+        p.action === 'remove-submission') {
       var denied = adminDenied(p);
       if (denied) { return denied; }
       if (p.action === 'mark-uploaded') { return markUploaded(p); }
@@ -135,6 +136,7 @@ function doPost(e) {
       if (p.action === 'list-inbox')    { return listInbox(p); }
       if (p.action === 'fetch-file')    { return fetchFile(p); }
       if (p.action === 'sheet-rows')    { return sheetRows(p); }
+      if (p.action === 'remove-submission') { return removeSubmission(p); }
       return moveBatch(p);
     }
 
@@ -502,6 +504,135 @@ function overdueRows() {
     });
   }
   return out;
+}
+
+// -------------------------------------------------------------- removal
+
+var REMOVED_TAB = 'removed';
+
+// A volunteer will eventually submit something that must not be published —
+// NSFW, someone's face at close range, a licence plate, a photo taken indoors
+// by mistake. This takes one submission out of the system: its file to Drive's
+// trash, its row out of submissions, and a tombstone into `removed`.
+//
+// THE TOMBSTONE IS NOT THE SUBMISSION. It keeps the submission id, when it was
+// removed, who removed it and why. It does not keep the image, the
+// coordinates, or the user agent — the things that made it worth removing.
+// Without it there is no way to show the report was acted on, and a
+// re-submitted duplicate looks like a brand new report.
+//
+// WHAT THIS CANNOT DO: unpublish from Mapillary. Once a sequence is uploaded
+// the imagery is public and outside this system, so removal here is only ever
+// half the job. The reply says so explicitly rather than reporting success.
+//
+// Built as an action, not a button, so a future classifier calls exactly this
+// path — same tombstone, same trail — with removedBy naming the model instead
+// of a person.
+function removeSubmission(p) {
+  if (!p.submissionId) { return fail('Missing submissionId'); }
+  if (!p.reason)       { return fail('Missing reason — a removal with no '
+                                     + 'reason is indistinguishable from a bug'); }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_TAB);
+  if (!sheet) { return fail('No such sheet tab: ' + SHEET_TAB); }
+
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var iId = head.indexOf('submission_id');
+  if (iId === -1) { return fail('Sheet has no submission_id column'); }
+
+  var rowIndex = -1;
+  for (var r = 1; r < values.length; r++) {
+    if (String(values[r][iId]).trim() === String(p.submissionId).trim()) {
+      rowIndex = r; break;
+    }
+  }
+  if (rowIndex === -1) { return fail('No row for ' + p.submissionId); }
+
+  var cell = function (name) {
+    var c = head.indexOf(name);
+    return c === -1 ? '' : String(values[rowIndex][c] || '');
+  };
+
+  var chapter  = cell('bwb_chapter');
+  var status   = cell('status');
+  var cluster  = cell('mapillary_cluster_id');
+  var fileList = cell('file_names').split(',').map(function (n) { return n.trim(); })
+                   .filter(function (n) { return n; });
+
+  // Published means public. Say so loudly; do not let a green tick imply the
+  // imagery is gone when it is still on someone else's servers.
+  var published = (status === 'uploaded' || status === 'live') || !!cluster;
+
+  var trashed = [], notFound = [];
+  fileList.forEach(function (name) {
+    var file = findInChapter(chapter, name);
+    if (file) { file.setTrashed(true); trashed.push(name); }
+    else      { notFound.push(name); }
+  });
+
+  tombstone(ss, {
+    submission_id: p.submissionId,
+    removed_at: new Date().toISOString(),
+    removed_by: p.removedBy || 'unknown',
+    reason: p.reason,
+    bwb_chapter: chapter,
+    was_status: status,
+    mapillary_cluster_id: cluster,
+    mapillary_still_public: published ? 'YES — request deletion from Mapillary' : ''
+  });
+
+  sheet.deleteRow(rowIndex + 1);
+
+  return ok({
+    submissionId: p.submissionId,
+    trashed: trashed,
+    filesNotFound: notFound,
+    rowDeleted: true,
+    stillPublicOnMapillary: published,
+    cluster: cluster,
+    note: published
+      ? 'The image is already on Mapillary and this cannot remove it there. '
+        + 'Request deletion from Mapillary for cluster ' + (cluster || '(unknown)') + '.'
+      : 'Never published — removal is complete.'
+  });
+}
+
+// Walks only this app's folders. A global search by name would reach files
+// that have nothing to do with MOOP Map.
+function findInChapter(chapter, name) {
+  var root = DriveApp.getFolderById(ROOT_FOLDER_ID);
+  var tops = ['inbox', 'uploaded', 'failed'];
+
+  for (var t = 0; t < tops.length; t++) {
+    var top = existingChild(root, tops[t]);
+    var ch = top && existingChild(top, chapter);
+    if (!ch) { continue; }
+
+    var here = ch.getFilesByName(name);
+    if (here.hasNext()) { return here.next(); }
+
+    var dates = ch.getFolders();
+    while (dates.hasNext()) {
+      var it = dates.next().getFilesByName(name);
+      if (it.hasNext()) { return it.next(); }
+    }
+  }
+  return null;
+}
+
+function tombstone(ss, row) {
+  var HEADERS_REMOVED = ['submission_id', 'removed_at', 'removed_by', 'reason',
+                         'bwb_chapter', 'was_status', 'mapillary_cluster_id',
+                         'mapillary_still_public'];
+  var tab = ss.getSheetByName(REMOVED_TAB);
+  if (!tab) {
+    tab = ss.insertSheet(REMOVED_TAB);
+    tab.appendRow(HEADERS_REMOVED);
+    tab.setFrozenRows(1);
+  }
+  tab.appendRow(HEADERS_REMOVED.map(function (h) { return row[h] || ''; }));
 }
 
 // ------------------------------------------------------------ drive queue

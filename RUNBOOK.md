@@ -329,6 +329,48 @@ To look yourself: **<https://moopmap.org/?refresh=1>** — the `?refresh=1`
 bypasses the session cache, which otherwise serves the counts from before the
 upload.
 
+## Removing a submission
+
+Someone will eventually submit something that must not be published. Every tile
+in MOOP Map Admin has a trash affordance: it trashes the file in Drive, deletes
+the Sheet row, removes the local copy, and writes a tombstone to a `removed`
+tab. It asks twice — a confirmation and a reason — because it is the only
+destructive thing in the tool and the only thing that cannot be undone from
+inside it.
+
+**The tombstone is not the submission.** It keeps the submission id, when, who,
+and why. It does not keep the image, the coordinates or the user agent. Without
+it there is no way to show a report was acted on, and a re-submitted duplicate
+looks like a brand new report.
+
+> **Removal here cannot unpublish from Mapillary.** Once a sequence is uploaded
+> the imagery is public and outside this system. If the row was `uploaded` or
+> `live`, the tool says so plainly and records `mapillary_still_public` on the
+> tombstone — you then have to request deletion from Mapillary directly, with
+> the cluster id. **Removing something before it is uploaded is the only
+> complete removal available**, which is an argument for reviewing promptly
+> rather than letting `inbox/` sit.
+
+Drive's trash holds a deleted file for 30 days. That is recoverable rather than
+gone, which is the right default for a mis-click; empty the trash if you need
+it actually gone.
+
+### For a future classifier
+
+`remove-submission` is an action, not a button, so an automated check calls the
+same path with `removedBy` naming the model — `classifier:nsfw-v1` rather than
+`admin`. Same tombstone, same trail, same Mapillary caveat.
+
+Two things worth deciding before wiring one up:
+
+- **Flag or remove?** A false positive on a photo of a mattress deletes a
+  legitimate report. Flagging for human confirmation is the safer default;
+  auto-removal only makes sense above a confidence threshold you have actually
+  measured.
+- **Run it before the upload, not after.** A classifier that runs on `pending`
+  rows can prevent publication. One that runs afterwards can only ask Mapillary
+  to take something down.
+
 ## When this becomes automated
 
 The pieces that make that a scripting job rather than a redesign:
