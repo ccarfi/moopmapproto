@@ -20,7 +20,7 @@
   var deviceRing = null;    // its accuracy, drawn to scale
   var devicePos = null;     // the last device fix, kept for the cross-check
   var geoWatch = null;      // keeps looking after a pin is placed by hand
-  var keptPin = null;       // km of disagreement the volunteer chose to keep
+  var dismissedDisagreement = false;  // they answered "keep my pin"
   var manualChosen = false; // they asked to place it themselves
   var isBrave = false;
 
@@ -160,18 +160,35 @@
   // A question, not a block. The phone is sometimes the one that is wrong, and
   // someone reporting a spot they photographed earlier has a legitimately
   // disagreeing pin. What must not happen is the disagreement going unnoticed.
+  // How far the pin being submitted sits from the device's own fix, or null.
+  //
+  // Computed at the moment it is needed rather than stashed when a button was
+  // pressed: a stashed value describes whichever disagreement was on screen
+  // then, which is the wrong pin as soon as the volunteer moves it again. It
+  // also means someone who ignores the prompt and submits anyway is recorded
+  // accurately, instead of looking like they were never asked.
+  function disagreementKm() {
+    if (!devicePos || !position || position.source === "device") { return null; }
+    var limit = (CONFIG.upload && CONFIG.upload.disagreeKm) || 1;
+    var d = kmApart(position, devicePos);
+    return d < limit ? null : Math.round(d * 1000) / 1000;
+  }
+
   function checkAgainstDevice() {
     var warn = el("geo-disagree");
     if (!warn) { return; }
 
-    if (!devicePos || !position || position.source === "device") {
+    var d = disagreementKm();
+    if (d === null) { warn.hidden = true; dismissedDisagreement = false; return; }
+
+    // A different disagreement is a different question, so it gets asked again
+    // even if the last one was dismissed.
+    if (dismissedDisagreement && warn.dataset.askedAbout === String(d)) {
       warn.hidden = true;
       return;
     }
-
-    var limit = (CONFIG.upload && CONFIG.upload.disagreeKm) || 1;
-    var d = kmApart(position, devicePos);
-    if (d < limit) { warn.hidden = true; keptPin = null; return; }
+    dismissedDisagreement = false;
+    warn.dataset.askedAbout = String(d);
 
     var far = d >= 10 ? Math.round(d) + " km"
                       : (d >= 1 ? d.toFixed(1) + " km" : Math.round(d * 1000) + " m");
@@ -189,7 +206,7 @@
     useDevice.className = "btn btn-secondary";
     useDevice.textContent = "Use my phone's location";
     useDevice.onclick = function () {
-      keptPin = null;
+      dismissedDisagreement = false;
       setPosition(devicePos.lat, devicePos.lng, devicePos.accuracy, "device");
     };
 
@@ -198,9 +215,9 @@
     keep.className = "btn btn-secondary";
     keep.textContent = "Keep my pin";
     keep.onclick = function () {
-      // Recorded, not just dismissed. A pin someone defended against their own
-      // phone is not the same as one nobody ever questioned.
-      keptPin = Math.round(d * 1000) / 1000;
+      // Only dismisses the prompt. The distance itself is read off the pin at
+      // submit time, so it always describes what is actually being sent.
+      dismissedDisagreement = true;
       warn.hidden = true;
       updateSubmitNote();
     };
@@ -643,7 +660,7 @@
       lng: position ? position.lng : null,
       accuracy: position ? position.accuracy : null,
       positionSource: position ? position.source : null,
-      pinKeptDespiteKm: keptPin,
+      pinKeptDespiteKm: disagreementKm(),
       inChapterBounds: (function () {
         var v = inBounds(position, c);
         return v === null ? "unknown" : String(v);
@@ -781,7 +798,7 @@
     if (deviceDot) { map.removeLayer(deviceDot); deviceDot = null; }
     if (deviceRing) { map.removeLayer(deviceRing); deviceRing = null; }
     devicePos = null;
-    keptPin = null;
+    dismissedDisagreement = false;
     manualChosen = false;
     if (el("geo-disagree")) { el("geo-disagree").hidden = true; }
     el("loc-coarse").hidden = true;
