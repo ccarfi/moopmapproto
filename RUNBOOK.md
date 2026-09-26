@@ -65,6 +65,37 @@ which these photos do not have. Use `upload` with a description file instead.
 > with no device position (Brave silently denies geolocation) cannot be placed
 > by any means and has to go to `failed/`.
 
+### Or review it in the console
+
+```bash
+export MOOPMAP_ADMIN_TOKEN='...'
+export MAPILLARY_USER='<your mapillary username>'
+python3 tools/console.py ./bwb_south_bay/2026-09-24 --sheet ~/Downloads/submissions.csv
+```
+
+Opens a local page showing every photo in the batch with its position, a map,
+and a tick box. Press Upload and it builds the description file, uploads only
+what you ticked, and records the result in the Sheet — steps 4 and 5 below in
+one pass.
+
+**Why it exists:** the CLI is all-or-nothing. `build_desc.py` refuses the whole
+batch if any photo is out of bounds, and `--force` suppresses the check for
+everything in it — forcing twenty photos to publish nineteen good ones is how
+a bad one goes public. The console makes that a per-photo decision.
+
+Defaults do the work: in-bounds JPEGs with a position arrive ticked, everything
+else arrives unticked with the reason shown. Out-of-bounds photos are offered
+rather than blocked. The only confirmation is the upload itself, because that
+is the only step that is public and permanent.
+
+It serves on 127.0.0.1 and refuses to bind anywhere else — it holds the admin
+token and can publish. The token never reaches the page.
+
+The CLI path below still works, and is what to reach for when something is
+wrong with the console.
+
+---
+
 **Don't build it by hand.** `tools/build_desc.py` does the matching, keying on
 the submission id embedded in each filename so a photo can only ever be paired
 with its own row:
