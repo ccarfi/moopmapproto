@@ -870,6 +870,18 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 /* The "Send another photo" button inside the confirmation. */
 .result .btn { margin-top: 12px; width: 100%; }
 
+/* The map is not a target until the device has had its turn. Dimmed and
+   inert, so "waiting" and "ready" are not the same picture. */
+.mini-map.is-waiting { opacity: .55; }
+.mini-map.is-waiting .leaflet-container { cursor: default; }
+
+.btn-link {
+  background: none; border: none; padding: 6px 0; text-decoration: underline;
+  color: var(--muted); font-size: 13px; cursor: pointer; display: block;
+}
+.btn-link:hover { color: var(--fg); }
+.btn-link[hidden] { display: none; }
+
 .disagree-row {
   display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
 }

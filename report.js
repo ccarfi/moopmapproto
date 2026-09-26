@@ -21,6 +21,7 @@
   var devicePos = null;     // the last device fix, kept for the cross-check
   var geoWatch = null;      // keeps looking after a pin is placed by hand
   var keptPin = null;       // km of disagreement the volunteer chose to keep
+  var manualChosen = false; // they asked to place it themselves
   var isBrave = false;
 
   function el(id) { return document.getElementById(id); }
@@ -88,8 +89,15 @@
     }).addTo(map);
 
     // Tapping the map is the fallback for "the GPS put me on the wrong side of
-    // the street", which happens a lot under tree cover.
+    // the street", which happens a lot under tree cover — and for when the
+    // device never reports at all.
+    //
+    // It is NOT available while we are still looking. A tappable map sitting
+    // under "Finding your location…" is what produced two photos pinned 99 km
+    // and 107 km from where they were taken: the volunteer got impatient, and
+    // an equally available wrong answer was right there.
     map.on("click", function (e) {
+      if (!placingAllowed()) { return; }
       setPosition(e.latlng.lat, e.latlng.lng, null, "user-adjusted");
     });
   }
@@ -195,6 +203,35 @@
     warn.hidden = false;
   }
 
+  // Placing by hand is available once the device has had its turn — it
+  // succeeded and they want to correct it, it failed, or they said they would
+  // rather do it themselves.
+  function placingAllowed() {
+    return manualChosen || !!position ||
+           geoState === "denied" || geoState === "timeout" ||
+           geoState === "unavailable";
+  }
+
+  function chooseManual() {
+    manualChosen = true;
+    renderLocationHelp();
+    renderPlacingState();
+    el("loc-status").textContent = "Tap the map to place the pin.";
+  }
+
+  // The map has to look like what it is: waiting, or ready.
+  function renderPlacingState() {
+    var wrap = el("mini-map");
+    var pick = el("loc-manual");
+    var allowed = placingAllowed();
+
+    if (wrap) { wrap.classList.toggle("is-waiting", !allowed); }
+
+    // Offered only while we are still looking — once placing is allowed the
+    // map itself is the affordance and a second control is just noise.
+    if (pick) { pick.hidden = allowed || geoState === "idle"; }
+  }
+
   function setPosition(lat, lng, accuracy, source) {
     position = { lat: lat, lng: lng, accuracy: accuracy, source: source };
 
@@ -228,6 +265,7 @@
     }
 
     renderLocationHelp();
+    renderPlacingState();
     checkBounds();
     checkAgainstDevice();
     updateSubmitNote();
@@ -255,6 +293,7 @@
   function setGeoState(state) {
     geoState = state;
     renderLocationHelp();
+    renderPlacingState();
     updateSubmitNote();
   }
 
@@ -300,7 +339,10 @@
     var began = Date.now();
     el("loc-status").textContent = "Finding your location…";
     var ticker = setInterval(function () {
-      if (position) { clearInterval(ticker); return; }
+      // Stop once there is an answer, or once they have taken over — otherwise
+      // it overwrites "Tap the map to place the pin." a second later and the
+      // instruction vanishes.
+      if (position || manualChosen) { clearInterval(ticker); return; }
       var secs = Math.round((Date.now() - began) / 1000);
       el("loc-status").textContent =
         "Finding your location… " + secs + "s" +
@@ -330,8 +372,19 @@
       function (pos) {
         done(null);
         showDeviceDot(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-        setPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "device");
-        setGeoState("ok");
+
+        // A fix arriving after someone has placed a pin by hand does NOT move
+        // it. They made a deliberate choice, and silently overriding it is
+        // both rude and wrong — the phone is sometimes the one in error. Show
+        // the dot and let the disagreement check ask.
+        if (position && position.source === "user-adjusted") {
+          setGeoState("ok");
+          checkAgainstDevice();
+        } else {
+          setPosition(pos.coords.latitude, pos.coords.longitude,
+                      pos.coords.accuracy, "device");
+          setGeoState("ok");
+        }
         watchForDisagreement();
       },
       function (err) {
@@ -695,6 +748,7 @@
     if (deviceRing) { map.removeLayer(deviceRing); deviceRing = null; }
     devicePos = null;
     keptPin = null;
+    manualChosen = false;
     if (el("geo-disagree")) { el("geo-disagree").hidden = true; }
     el("loc-coarse").hidden = true;
     el("geo-warn").hidden = true;
@@ -702,6 +756,7 @@
 
     updateSubmitNote();
     renderLocationHelp();
+    renderPlacingState();
     window.scrollTo(0, 0);
 
     if (navigator.geolocation && geoState !== "denied" && geoState !== "unavailable") {
@@ -762,6 +817,8 @@
     // method. Two photos were sent 99 km and 107 km from where they were
     // taken by someone following it.
     el("loc-status").textContent = "Finding your location…";
+
+    el("loc-manual").onclick = chooseManual;
 
     detectBrave();
     checkGeoPermission();

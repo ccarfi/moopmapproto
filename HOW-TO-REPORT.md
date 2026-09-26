@@ -35,10 +35,10 @@ Tap **Tell us about MOOP**, then:
 **Use Safari on iPhone, or Chrome on Android.** Brave blocks location without
 asking you, and a photo with no location can't go on the map.
 
-**Wait for the blue dot.** If you place the pin yourself before your phone has
-found you, you're guessing — and a pin dropped on a zoomed-out map can be
-kilometres out. If location genuinely won't work, zoom right in to the spot
-you're standing before tapping.
+**Wait for the blue dot.** While the phone is still looking, the map is greyed
+out and tapping it does nothing — that's deliberate, because a pin placed
+before your phone has found you is a guess. If it's taking too long, there's an
+**I'll place it myself** link; zoom right in to where you're standing first.
 
 ![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 
