@@ -51,6 +51,10 @@
       <span class="field-label">Location <em class="field-required">required</em></span>
       <div id="mini-map" class="mini-map"></div>
       <p class="field-hint" id="loc-status"></p>
+      <!-- Live, not transient: shown whenever placing is allowed but the map
+           is too far out. A refused tap with no explanation reads as a broken
+           map. -->
+      <p class="field-hint is-hint" id="loc-zoomhint" hidden>Zoom in to place the pin accurately.</p>
       <button type="button" id="loc-btn" class="btn btn-secondary">Use my location</button>
       <!-- Only while we are still looking. Placing by hand has to be something
            you choose, not something equally available to waiting. -->

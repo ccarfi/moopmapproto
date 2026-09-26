@@ -37,8 +37,12 @@ asking you, and a photo with no location can't go on the map.
 
 **Wait for the blue dot.** While the phone is still looking, the map is greyed
 out and tapping it does nothing — that's deliberate, because a pin placed
-before your phone has found you is a guess. If it's taking too long, there's an
-**I'll place it myself** link; zoom right in to where you're standing first.
+before your phone has found you is a guess. If it's taking too long, use the
+**I'll place it myself** link.
+
+**Placing it yourself means zooming in.** The map won't accept a tap until
+you're zoomed close enough to be accurate — on a zoomed-out map a fingertip
+covers several kilometres. Zoom to the spot you're actually standing, then tap.
 
 ![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 

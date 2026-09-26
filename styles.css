@@ -870,6 +870,8 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 /* The "Send another photo" button inside the confirmation. */
 .result .btn { margin-top: 12px; width: 100%; }
 
+.field-hint.is-hint { color: var(--warn, #b45309); }
+
 /* The map is not a target until the device has had its turn. Dimmed and
    inert, so "waiting" and "ready" are not the same picture. */
 .mini-map.is-waiting { opacity: .55; }

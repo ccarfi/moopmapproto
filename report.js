@@ -98,8 +98,16 @@
     // an equally available wrong answer was right there.
     map.on("click", function (e) {
       if (!placingAllowed()) { return; }
+      // A tap is only as precise as the zoom allows. Refusing is better than
+      // recording a guess to six decimal places.
+      if (!zoomEnoughToPlace()) { renderPlacingState(); return; }
       setPosition(e.latlng.lat, e.latlng.lng, null, "user-adjusted");
     });
+
+    // Not just when there is no pin yet: someone correcting a bad pin zooms
+    // out to find the right area, and a tap refused with no explanation reads
+    // as a broken map.
+    map.on("zoomend", renderPlacingState);
   }
 
   function recentreForChapter() {
@@ -212,11 +220,24 @@
            geoState === "unavailable";
   }
 
+  function minZoom() {
+    return (CONFIG.upload && CONFIG.upload.minPlacementZoom) || 15;
+  }
+
+  function zoomEnoughToPlace() {
+    return !map || map.getZoom() >= minZoom();
+  }
+
   function chooseManual() {
     manualChosen = true;
+    // The mini-map is 150px tall; pinching from z9 to z15 is six gestures on
+    // a phone held one-handed. Get them to a workable zoom in one step and let
+    // them pan from there — the point is a deliberate placement, not a penance.
+    if (map && map.getZoom() < minZoom()) {
+      map.setZoom(minZoom());
+    }
     renderLocationHelp();
     renderPlacingState();
-    el("loc-status").textContent = "Tap the map to place the pin.";
   }
 
   // The map has to look like what it is: waiting, or ready.
@@ -230,6 +251,19 @@
     // Offered only while we are still looking — once placing is allowed the
     // map itself is the affordance and a second control is just noise.
     if (pick) { pick.hidden = allowed || geoState === "idle"; }
+
+    // A separate line from the status, so it can be true at the same time as
+    // the coordinates rather than overwriting them.
+    var hint = el("loc-zoomhint");
+    if (hint) { hint.hidden = !allowed || zoomEnoughToPlace(); }
+
+    // Which of the two things the map is for. Only while there is no pin yet —
+    // after that the status line carries the coordinates.
+    if (allowed && !position) {
+      el("loc-status").textContent = zoomEnoughToPlace()
+        ? "Tap the map to place the pin."
+        : "";
+    }
   }
 
   function setPosition(lat, lng, accuracy, source) {

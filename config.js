@@ -111,6 +111,18 @@ const CONFIG = {
     maxPhotos: 1,
     maxFileMB: 15,
 
+    // Below this zoom, tapping the map does not place a pin.
+    //
+    // A tap is only ever as precise as the zoom allows. At z9 a thumb covers
+    // about 4.9 km, so a pin placed there carries no information at all — yet
+    // it gets stored to six decimal places and reads as authoritative. At z15
+    // a thumb is about 76 m, comparable to the device fixes these reports
+    // actually get (5-40 m).
+    //
+    // Too strict is its own failure: someone with no GPS who cannot place a
+    // pin cannot report at all, which is worse than a rough one.
+    minPlacementZoom: 15,
+
     // How far a hand-placed pin may sit from the device's own fix before the
     // form asks which one is right. Generous on purpose: nudging a pin to the
     // correct side of a path must never trigger it, and the error worth
