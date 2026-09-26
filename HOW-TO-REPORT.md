@@ -27,14 +27,18 @@ Tap **Tell us about MOOP**, then:
 
 1. Chapter → **BWB United Kingdom**
 2. **Choose File** — take a photo, or pick one from your library
-3. **Use my location**, and allow it when your phone asks
-4. Check the pin. Drag it, or tap the map, if it's off
+3. **Allow location** when your phone asks — it starts looking as soon as the
+   page opens, and can take up to 30 seconds outdoors
+4. A **blue dot** shows where your phone thinks you are. Check the pin is on it
 5. **Send photo**
 
 **Use Safari on iPhone, or Chrome on Android.** Brave blocks location without
-asking you, and a photo with no location can't go on the map. If location won't
-work at all, tap the map to place the pin yourself — zoom in first so you're
-accurate.
+asking you, and a photo with no location can't go on the map.
+
+**Wait for the blue dot.** If you place the pin yourself before your phone has
+found you, you're guessing — and a pin dropped on a zoomed-out map can be
+kilometres out. If location genuinely won't work, zoom right in to the spot
+you're standing before tapping.
 
 ![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 

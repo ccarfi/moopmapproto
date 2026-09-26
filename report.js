@@ -16,6 +16,8 @@
   var files = [];           // { file, status, error, li }
   var submitting = false;
   var geoState = "idle";    // idle | asking | ok | denied | timeout | unavailable
+  var deviceDot = null;     // where the phone says it is — never the pin
+  var deviceRing = null;    // its accuracy, drawn to scale
   var isBrave = false;
 
   function el(id) { return document.getElementById(id); }
@@ -95,6 +97,32 @@
     if (c && c.center) { map.setView(c.center, c.zoom || CONFIG.defaultZoom); }
   }
 
+  // Where the phone says it is, drawn separately from the submission pin.
+  //
+  // The map has only ever shown where the pin IS, never where the device
+  // THINKS IT IS. With both on screen a disagreement needs no threshold and no
+  // explanation: a dot in Gilroy and a pin in Oakland is obvious to anyone.
+  // This keeps working when a fix lands after a manual placement, which is the
+  // case that put two photos 99 km and 107 km from where they were taken.
+  function showDeviceDot(lat, lng, accuracy) {
+    if (!map) { return; }
+
+    if (!deviceDot) {
+      deviceRing = L.circle([lat, lng], {
+        radius: accuracy || 0, color: "#1a73e8", weight: 1,
+        fillColor: "#1a73e8", fillOpacity: 0.12, interactive: false
+      }).addTo(map);
+      deviceDot = L.circleMarker([lat, lng], {
+        radius: 6, color: "#fff", weight: 2,
+        fillColor: "#1a73e8", fillOpacity: 1, interactive: false
+      }).addTo(map);
+      deviceDot.bindTooltip("Where your phone says you are", { direction: "top" });
+    } else {
+      deviceDot.setLatLng([lat, lng]);
+      deviceRing.setLatLng([lat, lng]).setRadius(accuracy || 0);
+    }
+  }
+
   function setPosition(lat, lng, accuracy, source) {
     position = { lat: lat, lng: lng, accuracy: accuracy, source: source };
 
@@ -138,7 +166,15 @@
   function detectBrave() {
     try {
       if (navigator.brave && typeof navigator.brave.isBrave === "function") {
-        navigator.brave.isBrave().then(function (v) { isBrave = !!v; });
+        navigator.brave.isBrave().then(function (v) {
+          isBrave = !!v;
+          // Don't make Brave users sit out a 30 second count that cannot
+          // finish. As soon as we know, give them the way through.
+          if (isBrave && !position) {
+            el("loc-status").textContent = "";
+            setGeoState("denied");
+          }
+        });
       }
     } catch (e) { /* not Brave */ }
   }
@@ -179,9 +215,24 @@
 
   function requestLocation() {
     if (!navigator.geolocation) { setGeoState("unavailable"); return; }
+    // Locate-on-load and the retry when a photo is attached can both fire.
+    // Two acquisitions means two tickers writing to the same status line.
+    if (geoState === "asking") { return; }
 
     setGeoState("asking");
-    el("loc-status").textContent = "Getting your location…";
+
+    // Silence is what invites someone to give up and tap. A count and an
+    // expectation are the difference between waiting 30 seconds and waiting
+    // ten.
+    var began = Date.now();
+    el("loc-status").textContent = "Finding your location…";
+    var ticker = setInterval(function () {
+      if (position) { clearInterval(ticker); return; }
+      var secs = Math.round((Date.now() - began) / 1000);
+      el("loc-status").textContent =
+        "Finding your location… " + secs + "s" +
+        (secs >= 8 ? " — this can take up to 30 seconds outdoors" : "");
+    }, 1000);
 
     // Belt and braces: some browsers neither resolve nor reject. Without this
     // the form would sit on "Getting your location…" forever.
@@ -189,20 +240,23 @@
     var watchdog = setTimeout(function () {
       if (settled) { return; }
       settled = true;
+      clearInterval(ticker);
       el("loc-status").textContent = "";
       setGeoState("timeout");
-    }, 20000);
+    }, 30000);
 
     function done(state) {
       if (settled) { return; }
       settled = true;
       clearTimeout(watchdog);
+      clearInterval(ticker);
       if (state) { setGeoState(state); }
     }
 
     navigator.geolocation.getCurrentPosition(
       function (pos) {
         done(null);
+        showDeviceDot(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         setPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "device");
         setGeoState("ok");
       },
@@ -210,7 +264,7 @@
         el("loc-status").textContent = "";
         done(err && err.code === err.PERMISSION_DENIED ? "denied" : "timeout");
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 25000, maximumAge: 30000 }
     );
   }
 
@@ -542,6 +596,8 @@
     // taken somewhere else.
     position = null;
     if (marker) { map.removeLayer(marker); marker = null; }
+    if (deviceDot) { map.removeLayer(deviceDot); deviceDot = null; }
+    if (deviceRing) { map.removeLayer(deviceRing); deviceRing = null; }
     el("loc-coarse").hidden = true;
     el("geo-warn").hidden = true;
     el("loc-status").textContent = "";
@@ -603,10 +659,19 @@
     el("loc-btn").onclick = requestLocation;
     el("report-form").onsubmit = onSubmit;
 
-    el("loc-status").textContent = "Tap the map to place the pin.";
+    // NOT "tap the map". That was the first thing a volunteer read, before
+    // anything had tried to locate them — the fallback presented as the
+    // method. Two photos were sent 99 km and 107 km from where they were
+    // taken by someone following it.
+    el("loc-status").textContent = "Finding your location…";
 
     detectBrave();
     checkGeoPermission();
+
+    // Start on load, so the fix resolves while a chapter is picked and the
+    // photo is taken. Requesting it when the photo is attached meant
+    // acquisition began at the moment of least patience.
+    requestLocation();
     renderLocationHelp();
     updateSubmitNote();
   }
