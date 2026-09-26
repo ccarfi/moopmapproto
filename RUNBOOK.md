@@ -121,6 +121,10 @@ what you ticked, records the result in the Sheet, files anything unuploadable
 into `failed/<chapter>/`, and moves the batch to `uploaded/` — steps 4 and 5
 below in one pass.
 
+**A batch only leaves `inbox/` when nothing sendable is left in it.** Upload
+three of seven and it stays in the queue with the other four, which is what
+makes trying one photo first safe. Upload all of them and it files itself.
+
 **If the Sheet write does not fully land, nothing moves in Drive.** A conflict
 or an unknown submission id means the Sheet is not what you think it is, and
 emptying the queue on top of that compounds it. The batch stays in `inbox/`

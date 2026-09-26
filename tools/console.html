@@ -346,6 +346,15 @@
             ? " (" + r.moved.length + " file(s))" : ""));
     });
 
+    if (rec.leftover && rec.leftover.length) {
+      log("");
+      log(rec.leftover.length + " photo(s) in this batch were not sent, so it");
+      log("stays in inbox/. Come back for them whenever.");
+      el("go").textContent = "Uploaded";
+      el("go").disabled = true;
+      return;
+    }
+
     log("");
     log("done — out of the queue.");
     el("go").textContent = "Uploaded";

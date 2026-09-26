@@ -383,18 +383,25 @@ def do_record(uploaded_names, cluster, failures):
     if trouble:
         return {'ok': True, 'steps': out, 'moved': None, 'heldBack': trouble}
 
-    return {'ok': True, 'steps': out, 'moved': do_moves(failures)}
+    moved, leftover = do_moves(failures, uploaded_names)
+    return {'ok': True, 'steps': out, 'moved': moved, 'leftover': leftover}
 
 
-def do_moves(failures):
+def do_moves(failures, uploaded_names):
     """File what could not be uploaded, then take the batch out of the queue.
 
     No confirmation on either: both are undoable and happen every run, and a
     prompt here would train the reflex that gets the upload confirmation
     clicked through too.
+
+    The batch only leaves inbox/ when nothing sendable is left in it. Uploading
+    a subset and moving the whole folder anyway strands the rest: still pending
+    in the Sheet, but no longer in the queue, so the console would never offer
+    them again.
     """
     batch = STATE['batch']
     date = os.path.basename(batch['folder'].rstrip(os.sep))
+    sent = set(uploaded_names or [])
     done = []
 
     if failures:
@@ -402,10 +409,15 @@ def do_moves(failures):
                          to='failed', files=[f['name'] for f in failures])
         done.append({'to': 'failed', 'result': res})
 
+    leftover = [p['name'] for p in batch['photos']
+                if p['state'] in ('ready', 'outside') and p['name'] not in sent]
+    if leftover:
+        return done, leftover
+
     res = drive_call('move-batch', chapter=batch['chapter'], date=date,
                      to='uploaded')
     done.append({'to': 'uploaded', 'result': res})
-    return done
+    return done, []
 
 
 # -------------------------------------------------------------------- server
