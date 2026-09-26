@@ -69,6 +69,14 @@
     font-size: 15px; line-height: 1; color: var(--muted); border-radius: 6px;
   }
   .bin:hover { background: #fee2e2; color: var(--bad); }
+  /* A published photo cannot be deleted from here, so it must not offer a
+     bin. What it offers is the paperwork for a takedown. */
+  .takedown {
+    flex: none; border: 1px solid var(--line); background: none; cursor: pointer;
+    padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
+    color: var(--warn); white-space: nowrap;
+  }
+  .takedown:hover { background: var(--warn-bg); border-color: var(--warn); }
   .tile.gone { opacity: .4; pointer-events: none; }
   .dead .why, .blocked .why { color: var(--bad); }
   #log {
@@ -193,14 +201,23 @@
     badge.textContent = LABEL[p.state];
     top.appendChild(badge);
 
-    var bin = document.createElement("button");
-    bin.className = "bin";
-    bin.type = "button";
-    bin.title = "Remove this submission entirely";
-    bin.setAttribute("aria-label", "Remove " + p.name + " entirely");
-    bin.textContent = "🗑";
-    bin.onclick = function () { remove(p, d); };
-    top.appendChild(bin);
+    var published = p.state === "done" || p.state === "unrecorded";
+    var act = document.createElement("button");
+    act.type = "button";
+    if (published) {
+      act.className = "takedown";
+      act.textContent = "Request takedown";
+      act.title = "Remove our copies and record what Mapillary needs to " +
+                  "delete it. This does not unpublish it.";
+      act.setAttribute("aria-label", "Request takedown of " + p.name);
+    } else {
+      act.className = "bin";
+      act.textContent = "🗑";
+      act.title = "Remove this submission entirely — it has not been published";
+      act.setAttribute("aria-label", "Remove " + p.name + " entirely");
+    }
+    act.onclick = function () { remove(p, d, published); };
+    top.appendChild(act);
 
     body.appendChild(top);
 
@@ -288,21 +305,24 @@
     }, 250);
   }
 
-  async function remove(p, tileEl) {
-    var published = p.state === "done" || p.state === "unrecorded";
-
+  async function remove(p, tileEl, published) {
     // The one place a hard confirmation belongs: this is destructive and
     // cannot be undone from here. Everything else in this tool is reversible,
     // which is why nothing else asks.
-    var warning =
-      "Remove this submission entirely?\n\n" + p.name + "\n\n" +
-      "The photo goes to Drive's trash, the Sheet row is deleted, and the " +
-      "local copy is removed.";
-    if (published) {
-      warning += "\n\nWARNING: this one is already on Mapillary. Removing it " +
-                 "here does NOT take it off Mapillary — the imagery stays " +
-                 "public until you request deletion from them directly.";
-    }
+    //
+    // The two cases get different words because they are different actions.
+    // Offering "delete" for something already public would promise what it
+    // cannot do, at the moment someone is least likely to read carefully.
+    var warning = published
+      ? "Request takedown of this photo?\n\n" + p.name + "\n\n" +
+        "It is ALREADY PUBLIC on Mapillary, and this does not unpublish it.\n\n" +
+        "What this does: removes our copies (Drive, Sheet, local) and records " +
+        "the cluster id you need to ask Mapillary to delete it. You then have " +
+        "to make that request to Mapillary yourself."
+      : "Remove this submission entirely?\n\n" + p.name + "\n\n" +
+        "It has not been published, so this is a complete removal: the photo " +
+        "goes to Drive's trash, the Sheet row is deleted, and the local copy " +
+        "is removed.";
     if (!window.confirm(warning)) { return; }
 
     var reason = window.prompt(
@@ -327,12 +347,13 @@
     batch.photos = batch.photos.filter(function (x) { return x.name !== p.name; });
     refresh();
 
-    log("removed " + p.name);
+    log((res.stillPublicOnMapillary ? "takedown started for " : "removed ") + p.name);
     log("  trashed in Drive: " + (res.trashed || []).join(", ") || "  (no file found)");
     log("  Sheet row deleted, tombstone written to the 'removed' tab");
     if (res.stillPublicOnMapillary) {
       log("  STILL PUBLIC ON MAPILLARY — cluster " + (res.cluster || "unknown"));
-      log("  This tool cannot unpublish it. Request deletion from Mapillary.");
+      log("  Ask Mapillary to delete that cluster. Until you do, the daily");
+      log("  digest will keep reporting it as an outstanding takedown.");
     }
   }
 

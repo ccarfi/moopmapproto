@@ -343,13 +343,30 @@ and why. It does not keep the image, the coordinates or the user agent. Without
 it there is no way to show a report was acted on, and a re-submitted duplicate
 looks like a brand new report.
 
-> **Removal here cannot unpublish from Mapillary.** Once a sequence is uploaded
-> the imagery is public and outside this system. If the row was `uploaded` or
-> `live`, the tool says so plainly and records `mapillary_still_public` on the
-> tombstone — you then have to request deletion from Mapillary directly, with
-> the cluster id. **Removing something before it is uploaded is the only
-> complete removal available**, which is an argument for reviewing promptly
-> rather than letting `inbox/` sit.
+### Two different actions, deliberately
+
+A photo that has **not** been published gets a trash can, and removal is
+complete.
+
+A photo that **has** been published gets **Request takedown** instead — not a
+trash can, because offering "delete" for something already public promises what
+it cannot do, at the moment someone is least likely to read carefully. It still
+does real work: it removes our copies and records the cluster id you need. But
+the imagery stays on Mapillary until you ask them to delete it.
+
+> **Removing something before it is uploaded is the only complete removal
+> available.** That is the argument for reviewing promptly rather than letting
+> `inbox/` sit — the review step matters more here than the delete button does.
+
+### Outstanding takedowns are chased
+
+A takedown you never actually requested would otherwise sit in the `removed`
+tab forever with nobody looking. The daily digest reports any tombstone marked
+`mapillary_still_public` that has no `mapillary_deleted_at`, and it breaks the
+digest's silence to do it — an image that should not be public is exactly the
+thing worth an email about.
+
+Fill in `mapillary_deleted_at` once Mapillary confirms, and it stops asking.
 
 Drive's trash holds a deleted file for 30 days. That is recoverable rather than
 gone, which is the right default for a mis-click; empty the trash if you need

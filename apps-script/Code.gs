@@ -625,7 +625,7 @@ function findInChapter(chapter, name) {
 function tombstone(ss, row) {
   var HEADERS_REMOVED = ['submission_id', 'removed_at', 'removed_by', 'reason',
                          'bwb_chapter', 'was_status', 'mapillary_cluster_id',
-                         'mapillary_still_public'];
+                         'mapillary_still_public', 'mapillary_deleted_at'];
   var tab = ss.getSheetByName(REMOVED_TAB);
   if (!tab) {
     tab = ss.insertSheet(REMOVED_TAB);
@@ -800,14 +800,15 @@ function dailyDigest() {
 
   var rows = pendingRows();
   var overdue = overdueRows();
+  var takedowns = outstandingTakedowns();
 
   // Silence has to mean "queue clear", or the mail becomes noise and gets
   // filtered, which is the failure this is meant to prevent. Overdue
   // confirmations break the silence too — an upload that never appeared is
   // exactly the thing nobody would otherwise notice.
-  if (!rows.length && !overdue.length) { return; }
+  if (!rows.length && !overdue.length && !takedowns.length) { return; }
 
-  if (!rows.length) { return overdueOnly(overdue); }
+  if (!rows.length) { return withoutQueue(overdue, takedowns); }
 
   var uploadable = rows.filter(function (r) { return !r.blocked; });
   var blocked    = rows.filter(function (r) { return r.blocked; });
@@ -845,6 +846,7 @@ function dailyDigest() {
   }
 
   appendOverdue(lines, overdue);
+  appendTakedowns(lines, takedowns);
 
   lines.push('');
   lines.push('Run: RUNBOOK.md');
@@ -871,17 +873,68 @@ function appendOverdue(lines, overdue) {
   lines.push('  Check the sequence on Mapillary before re-uploading.');
 }
 
-function overdueOnly(overdue) {
-  var lines = ['Nothing waiting to upload, but some earlier uploads have not ' +
-               'appeared on the map.'];
+// Nothing queued, but something else still needs a person.
+function withoutQueue(overdue, takedowns) {
+  var lines = ['Nothing waiting to upload.'];
   appendOverdue(lines, overdue);
+  appendTakedowns(lines, takedowns);
   lines.push('');
   lines.push('Sheet: ' + SpreadsheetApp.openById(SHEET_ID).getUrl());
 
-  MailApp.sendEmail(recipient(),
-    'MOOP Map — ' + overdue.length + ' upload' +
-    (overdue.length === 1 ? '' : 's') + ' not showing',
-    lines.join('\n'));
+  var subject = takedowns.length
+    ? 'MOOP Map — ' + takedowns.length + ' takedown' +
+      (takedowns.length === 1 ? '' : 's') + ' outstanding'
+    : 'MOOP Map — ' + overdue.length + ' upload' +
+      (overdue.length === 1 ? '' : 's') + ' not showing';
+
+  MailApp.sendEmail(recipient(), subject, lines.join('\n'));
+}
+
+// Removals that are only half done: our copies are gone, the imagery is not.
+// Nothing else looks at the 'removed' tab, so without this a takedown request
+// that was never made simply stops existing — and the reason these get removed
+// is exactly the reason it matters.
+//
+// Fill in mapillary_deleted_at once Mapillary confirms, and it stops asking.
+function outstandingTakedowns() {
+  var tab = SpreadsheetApp.openById(SHEET_ID).getSheetByName(REMOVED_TAB);
+  if (!tab || tab.getLastRow() < 2) { return []; }
+
+  var values = tab.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var iPublic = head.indexOf('mapillary_still_public'),
+      iDone = head.indexOf('mapillary_deleted_at'),
+      iCluster = head.indexOf('mapillary_cluster_id'),
+      iWhen = head.indexOf('removed_at'),
+      iReason = head.indexOf('reason');
+  if (iPublic === -1) { return []; }
+
+  var out = [];
+  for (var r = 1; r < values.length; r++) {
+    if (!String(values[r][iPublic]).trim()) { continue; }
+    if (iDone !== -1 && String(values[r][iDone]).trim()) { continue; }
+    var t = Date.parse(iWhen === -1 ? '' : String(values[r][iWhen]));
+    out.push({
+      cluster: iCluster === -1 ? '(unknown)' : String(values[r][iCluster] || '(unknown)'),
+      reason: iReason === -1 ? '' : String(values[r][iReason] || ''),
+      days: isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000)
+    });
+  }
+  return out;
+}
+
+function appendTakedowns(lines, takedowns) {
+  if (!takedowns.length) { return; }
+  lines.push('');
+  lines.push(takedowns.length + ' removed submission' +
+             (takedowns.length === 1 ? ' is' : 's are') +
+             ' still public on Mapillary:');
+  takedowns.forEach(function (t) {
+    lines.push('  cluster ' + t.cluster + ' — ' + t.reason +
+               (t.days === null ? '' : ' (' + t.days + ' days ago)'));
+  });
+  lines.push('  Ask Mapillary to delete these, then fill in');
+  lines.push("  mapillary_deleted_at on the 'removed' tab to stop the reminder.");
 }
 
 // Read by header name rather than by position. appendRow writes positionally,
