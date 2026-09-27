@@ -460,6 +460,12 @@ function confirmUploads() {
     });
   });
 
+  if (lastCheckError) {
+    console.error('confirmUploads did not check Mapillary: ' + lastCheckError);
+  } else {
+    console.log('confirmUploads: ' + confirmed + ' confirmed, ' +
+                waiting + ' still waiting');
+  }
   return { confirmed: confirmed, waiting: waiting };
 }
 
@@ -487,6 +493,11 @@ function captureTimesFor(orgId) {
       // anything. Re-running installDigestTrigger fixes it.
       lastCheckError = 'could not reach Mapillary: ' +
                        (e && e.message ? e.message : e);
+      // Loudly, as well as into the variable. Catching this and recording it
+      // somewhere only the digest reads meant a run from the editor printed
+      // "Execution completed" while fetching nothing — which is exactly the
+      // reassurance you do not want from a failing call.
+      console.error('confirmUploads: ' + lastCheckError);
       return null;
     }
     if (res.getResponseCode() !== 200) {
