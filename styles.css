@@ -857,7 +857,22 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
   padding: 16px;
   margin-top: 14px;
   font-size: 14px;
+
+  /* The action goes first visually, the message after it.
+     On a phone this block lands at the very bottom of a long form, so
+     whatever is last in it falls below the fold — measured at 43px for the
+     button. Putting the button at the top of the block keeps it whole, and
+     lets the heading peek up instead.
+     Done with `order` rather than by reordering the DOM so a screen reader
+     still hears "Photo sent" before it is offered the next action. Safe
+     because the block holds exactly one focusable element, so visual and
+     focus order cannot disagree. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
+
+.result .btn { order: -1; margin-bottom: 12px; }
 
 .result p { margin: 6px 0 0; line-height: 1.5; }
 
@@ -868,7 +883,7 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 .result[hidden] { display: none; }
 
 /* The "Send another photo" button inside the confirmation. */
-.result .btn { margin-top: 12px; width: 100%; }
+.result .btn { width: 100%; }
 
 .field-hint.is-hint { color: var(--warn, #b45309); }
 
