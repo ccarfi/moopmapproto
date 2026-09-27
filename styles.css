@@ -827,6 +827,26 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
   cursor: not-allowed;
 }
 
+/* Sending is not the same state as "you cannot submit yet", and it should stop
+   borrowing its costume. :disabled above is white text on #d1d5db — about
+   1.5:1, against the 4.5:1 WCAG asks for. The one moment this button has
+   something to say was the moment it said it least legibly.
+
+   So while sending it keeps the primary fill (white on near-black, ~15:1) and
+   stays disabled only to block a second submit. The progress fill is a
+   gradient with a hard stop rather than a child element, because the send
+   handler writes the button's textContent and would wipe any children. */
+.btn-primary.is-sending,
+.btn-primary.is-sending:disabled {
+  background-color: var(--fg);
+  background-image: linear-gradient(
+    to right,
+    rgba(255, 255, 255, .24) var(--fill, 0%),
+    rgba(255, 255, 255, 0) var(--fill, 0%));
+  color: #fff;
+  cursor: progress;
+}
+
 .btn-secondary {
   margin-top: 10px;
   background: var(--bg);

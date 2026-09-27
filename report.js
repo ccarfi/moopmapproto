@@ -825,13 +825,125 @@
     }
   }
 
+  /* --------------------------------------------------- send progress */
+
+  // The bar is an estimate and cannot be anything else. fetch has no
+  // upload-progress event, and attaching one to an XMLHttpRequest sets the
+  // CORS preflight flag — which this endpoint cannot answer, because Apps
+  // Script replies to /exec with a 302. Checked against production rather than
+  // assumed: the identical request succeeds without an upload listener and is
+  // blocked with one.
+  //
+  // So it is timed, and the throughput guess below is deliberately pessimistic.
+  // Finishing early sweeps the bar to full, which reads as fast; finishing late
+  // parks it at the ceiling. Given a choice of being wrong, be wrong in the
+  // direction that flatters the upload.
+  var BYTES_PER_MS = 150;    // ~1.2 Mbit/s — a bad rural uplink, not a good one
+  var EASE_TO = 85;          // where the timed curve lands
+  var CEILING = 97;          // the creep stops here; only a reply reaches 100
+  var SWEEP_MS = 260;        // filling the last of the bar once the reply lands
+  var HOLD_MS = 220;         // and letting a full bar be seen before it goes
+  var progress = { raf: 0, floor: 0 };
+
+  function setFill(pct) {
+    el("submit-btn").style.setProperty("--fill", pct.toFixed(1) + "%");
+  }
+
+  function startProgress(bytes) {
+    var btn = el("submit-btn");
+    btn.classList.add("is-sending");
+    btn.setAttribute("aria-busy", "true");
+    progress.floor = 0;
+    setFill(0);
+
+    // base64 inflates the payload by about a third before it goes on the wire.
+    var expected = Math.min(45000, 900 + (bytes * 4 / 3) / BYTES_PER_MS);
+    var t0 = performance.now();
+
+    (function step(now) {
+      // Recomputed from elapsed time, never incremented, so a backgrounded tab
+      // that stops firing frames catches up instead of falling behind.
+      var elapsed = (now || performance.now()) - t0;
+      var pct;
+      if (elapsed < expected) {
+        var t = elapsed / expected;
+        pct = EASE_TO * (1 - Math.pow(1 - t, 2));   // quick, then patient
+      } else {
+        // Asymptotic. It never arrives; only the response finishes it.
+        pct = EASE_TO + (CEILING - EASE_TO) *
+              (1 - Math.exp(-(elapsed - expected) / 15000));
+      }
+      setFill(Math.max(pct, progress.floor));
+      progress.raf = requestAnimationFrame(step);
+    })();
+  }
+
+  // With more than one photo each completion is a real milestone, so the bar is
+  // allowed to jump to it rather than wait for the clock.
+  function progressFloor(done, total) {
+    progress.floor = EASE_TO * (done / total);
+  }
+
+  function endProgress(sent) {
+    cancelAnimationFrame(progress.raf);
+    var btn = el("submit-btn");
+    var from = parseFloat(btn.style.getPropertyValue("--fill")) || 0;
+    var t0 = performance.now();
+
+    // Swept rather than snapped, because the common case is finishing early
+    // from a low fill and an instant jump there reads as a glitch.
+    //
+    // The timer owns completion and the animation only paints. Hanging the
+    // promise off the frame chain instead meant that backgrounding the tab
+    // during the sweep — switching apps mid-send, which is an ordinary thing
+    // to do on a phone — stopped requestAnimationFrame, left the promise
+    // unresolved and the confirmation never arrived.
+    return new Promise(function (resolve) {
+      var settled = false;
+
+      function finish() {
+        if (settled) { return; }
+        settled = true;
+        btn.classList.remove("is-sending");
+        btn.removeAttribute("aria-busy");
+        btn.style.removeProperty("--fill");
+        resolve();
+      }
+
+      // A send that failed must not end on a full bar. The error underneath is
+      // the message, and a completed bar above it reads as a contradiction, so
+      // the fill is abandoned where it stood rather than swept home.
+      if (!sent) { setTimeout(finish, HOLD_MS); return; }
+
+      // Sweep, then let a full bar be seen before the button changes back.
+      // This replaces the old 400ms floor under "Sending…" — same job, done
+      // visibly.
+      setTimeout(finish, SWEEP_MS + HOLD_MS);
+
+      (function sweep(now) {
+        if (settled) { return; }
+        var t = Math.min(1, ((now || performance.now()) - t0) / SWEEP_MS);
+        setFill(from + (100 - from) * t);
+        if (t < 1) { requestAnimationFrame(sweep); }
+      })();
+    });
+  }
+
   async function retryOne(i) {
     if (submitting) { return; }
     submitting = true;
-    el("submit-btn").disabled = true;
-    await sendOne(i);
+    var btn = el("submit-btn");
+    btn.disabled = true;
+    // A retry is the same work as a send and used to show nothing at all — the
+    // button simply greyed out. Same treatment, or the retry path looks broken
+    // next to the one it is retrying.
+    btn.textContent = "Sending…";
+    startProgress(files[i].file.size);
+    var ok = await sendOne(i);
+    await endProgress(ok);
     submitting = false;
-    el("submit-btn").disabled = false;
+    btn.textContent = "Send photo";
+    btn.disabled = false;
     finishIfDone();
   }
 
@@ -970,25 +1082,26 @@
     if (!submissionId) { submissionId = uuid(); }
 
     submitting = true;
-    el("submit-btn").disabled = true;
-    el("submit-btn").textContent = "Sending…";
+    var btn = el("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
 
-    // On a fast connection the whole send can finish inside a frame or two, so
-    // "Sending…" flashes and the confirmation appears to come from nowhere.
-    // Hold the sending state briefly so the swap reads as a sequence.
-    var sendingSince = Date.now();
+    var bytes = 0;
+    todo.forEach(function (i) { bytes += files[i].file.size; });
+    startProgress(bytes);
 
     // One request per photo, in sequence: base64 inflates the payload by about
     // a third, and a failure part-way through then only costs that one photo.
+    var anySent = false;
     for (var k = 0; k < todo.length; k++) {
-      await sendOne(todo[k]);
+      if (await sendOne(todo[k])) { anySent = true; }
+      progressFloor(k + 1, todo.length);
     }
 
-    var shown = Date.now() - sendingSince;
-    if (shown < 400) { await new Promise(function (r) { setTimeout(r, 400 - shown); }); }
+    await endProgress(anySent);
 
     submitting = false;
-    el("submit-btn").textContent = "Send photo";
+    btn.textContent = "Send photo";
     updateSubmitNote();
     finishIfDone();
   }
