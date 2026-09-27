@@ -9,6 +9,18 @@
  * There is no origin check, so the endpoint answers requests from anywhere.
  * That is why moving to a custom domain needed no change here.
  *
+ * SCOPES
+ *   appsscript.json in this folder lists the five OAuth scopes this script
+ *   needs. Apps Script normally infers scopes from the code, but inference
+ *   missed script.external_request here — the UrlFetchApp call sits inside a
+ *   try/catch, and the deployment ran for days refusing to fetch while
+ *   reporting nothing. Declaring them explicitly forces the authorisation
+ *   prompt and makes the requirement reviewable.
+ *
+ *   To apply it: Project Settings -> tick "Show appsscript.json manifest file
+ *   in editor", open the file, paste this one in, save, then run any function
+ *   from the editor and accept the prompt.
+ *
  * SETUP
  *   1. script.google.com → New project. Paste this file in as Code.gs.
  *   2. Fill in ROOT_FOLDER_ID and SHEET_ID below.

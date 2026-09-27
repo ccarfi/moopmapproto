@@ -327,11 +327,23 @@ an outage must not look like imagery that never appeared. **The digest says
 which it was** — "could not be checked against Mapillary" with the reason,
 rather than "not on the map after 3 days".
 
-> If the digest reports that it could not check, the usual cause is the
-> trigger running without permission to call out to the internet. The script
-> only started doing that when confirmation was added, and a trigger created
-> before then keeps its old authorisation. Run `confirmUploads` once from the
-> editor, accept the prompt, then run `installDigestTrigger` again.
+> If the digest reports that it could not check, the deployment is running
+> without permission to call out to the internet:
+>
+> ```
+> You do not have permission to call UrlFetchApp.fetch.
+> Required permissions: .../auth/script.external_request
+> ```
+>
+> Apps Script infers scopes from the code, and it missed this one — the
+> `UrlFetchApp` call sits inside a try/catch. `apps-script/appsscript.json`
+> declares all five scopes explicitly. Paste it in (Project Settings → show
+> the manifest), save, run any function from the editor and accept the
+> prompt, then redeploy a new version and re-run `installDigestTrigger`.
+>
+> `python3 tools/console.py --check` runs the confirmation and prints both
+> sides of the comparison, which is how this was finally pinned down after
+> three wrong guesses.
 
 To look yourself: **<https://moopmap.org/?refresh=1>** — the `?refresh=1`
 bypasses the session cache, which otherwise serves the counts from before the
