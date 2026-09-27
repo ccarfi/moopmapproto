@@ -1023,23 +1023,6 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 
 .version-key { opacity: .7; }
 
-/* Top left, tucked under the zoom control.
-   Not the bottom corner, which is where it started: Leaflet's attribution
-   wraps to the full width on a phone and grows upward as it does, so any fixed
-   offset from the bottom is one narrow screen away from covering the
-   OpenStreetMap credit — and that credit is a licence condition, not
-   decoration. The zoom control is a fixed 64px, so this clears it at every
-   width. */
-.version-map {
-  position: absolute;
-  left: 10px;
-  top: 84px;
-  z-index: 999;
-  background: rgba(255, 255, 255, .82);
-  border-radius: 7px;
-  backdrop-filter: blur(2px);
-}
-
 /* In the page flow at the foot of the report form. */
 .version-page {
   margin: 22px 0 0;
@@ -1074,6 +1057,7 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
   text-align: center;
 }
 
-/* Non-interactive variant, for a page with nothing to expand into. Matches the
-   button's padding so the two look identical in place. */
+/* Non-interactive variant, for when the backend could not be reached and there
+   is nothing to expand into. Matches the button's padding so the two look
+   identical in place. */
 .version-label { display: inline-block; padding: 4px 6px; font-variant-numeric: tabular-nums; }

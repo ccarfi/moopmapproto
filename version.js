@@ -33,6 +33,11 @@
  *     The Apps Script half is a hand-set constant (CODE_VERSION in Code.gs),
  *     because a script has no way to read its own deployment date.
  *
+ * WHERE IT RUNS
+ *     report.html only. It was on the map too and came off in #40 — that page
+ *     is for volunteers looking at photos, and a build stamp in the corner was
+ *     just noise to them.
+ *
  * USE
  *     Add <div id="version" class="version" hidden></div> to the page and load
  *     this file last. Add data-api to that element on a page that talks to the
@@ -171,22 +176,24 @@
       btn.addEventListener("click", function () { refresh(btn, files); });
       el.textContent = "";
       el.appendChild(btn);
-      // This ships at the foot of the report form, which is right for a quiet
+      // This ships at the foot of the form, which is right for a quiet
       // timestamp and wrong for the one message on the page worth reading —
-      // below the fold on a phone, the same failure as the confirmation box in
-      // #19. On the map it is positioned, so the move costs nothing there.
+      // below the fold on a phone, the same failure as the confirmation box
+      // in #19.
       if (el.parentNode && el.parentNode.firstElementChild !== el) {
         el.parentNode.insertBefore(el, el.parentNode.firstElementChild);
       }
       return;
     }
 
-    var label = "web " + (newest ? short(newest) : "unknown");
+    // "Ver:" because a bare date and time at the foot of a page reads as a
+    // clock — it looked like the form was telling you what time it was.
+    var label = "Ver: web " + (newest ? short(newest) : "unknown");
     el.textContent = "";
 
-    // Nothing to expand into on the map page, which never talks to the Apps
-    // Script. A button that reveals a copy of its own label is worse than no
-    // button — and being current is already said by this not being orange.
+    // No backend answer — offline, or the endpoint is down. Nothing to expand
+    // into, and a button that reveals a copy of its own label is worse than no
+    // button, so this degrades to plain text rather than a dead control.
     if (!api) {
       var span = document.createElement("span");
       span.className = "version-label";

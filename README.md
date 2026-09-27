@@ -131,9 +131,14 @@ minutes after a push a browser keeps running the old code with no sign of it.
 Chrome holds on longer in practice. The failure is quiet and expensive — a
 change gets declared broken when the browser never fetched it.
 
-`version.js` puts a small timestamp in the corner: top left under the zoom
-control on the map, at the foot of the report form. It is the deploy time of
-the newest file the page is actually running, read from `Last-Modified`.
+`version.js` puts a small `Ver:` stamp at the foot of the report form — the
+deploy time of the newest file the page is actually running, read from
+`Last-Modified`. The `Ver:` matters: a bare date and time down there read as a
+clock rather than a build.
+
+**Report page only.** It was on the map as well and came off in #40; that page
+is for volunteers looking at photos, and a build stamp in the corner was noise
+to them.
 
 It is not a version constant. A constant only tells you what you are running,
 and on a kerb in Gilroy you won't remember what the latest is. Instead every
