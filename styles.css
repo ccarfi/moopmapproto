@@ -953,6 +953,11 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 .disagree-row .btn { flex: 1 1 auto; min-width: 140px; }
 #geo-disagree p { margin: 0; }
 
+/* Sits inside the Photo card now (#42), so it needs its own separation from
+   the picker above it — previously the gap came from being a block of its own
+   between two cards. */
+#submit-area { margin-top: 14px; }
+
 #submit-area[hidden] { display: none; }
 
 /* Stand the form down once a report is sent: still readable, so someone can

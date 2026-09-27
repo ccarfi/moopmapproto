@@ -40,22 +40,10 @@
       <p class="field-hint">Which chapter this is for.</p>
     </section>
 
-    <section class="field">
-      <span class="field-label">Photo</span>
-      <!-- The native control renders "Choose File / No file chosen" from
-           browser shadow DOM, which cannot be relabelled. So the input is
-           visually hidden (not display:none — it stays focusable and keeps
-           working with a keyboard) and a label styled as a button drives it.
-           The label's text becomes the input's accessible name. -->
-      <div class="file-pick">
-        <input type="file" id="photos" class="file-input-hidden" accept="image/jpeg,.jpg,.jpeg">
-        <label for="photos" class="btn btn-secondary file-pick-btn">Take photo</label>
-        <span class="file-pick-name" id="photo-name">No photo selected</span>
-      </div>
-      <p class="field-hint" id="photos-hint">One photo per report. Don't crop or edit it.</p>
-      <ul id="file-list" class="file-list"></ul>
-    </section>
-
+    <!-- Location before Photo (#42). It is the step that takes time and the one
+         that goes wrong in the field, and the fix starts the moment the page
+         opens — so it should be what a volunteer is looking at while it runs,
+         not something they scroll down to after the photo is already chosen. -->
     <section class="field">
       <span class="field-label">Location <em class="field-required">required</em></span>
       <div id="mini-map" class="mini-map"></div>
@@ -76,14 +64,36 @@
       <div id="geo-disagree" class="notice is-warn" role="alert" hidden></div>
     </section>
 
-    <div id="submit-area">
-      <button type="submit" id="submit-btn" class="btn btn-primary">Send photo</button>
-      <p class="field-hint" id="submit-note"></p>
-    </div>
+    <section class="field">
+      <span class="field-label">Photo</span>
+      <!-- The native control renders "Choose File / No file chosen" from
+           browser shadow DOM, which cannot be relabelled. So the input is
+           visually hidden (not display:none — it stays focusable and keeps
+           working with a keyboard) and a label styled as a button drives it.
+           The label's text becomes the input's accessible name. -->
+      <div class="file-pick">
+        <input type="file" id="photos" class="file-input-hidden" accept="image/jpeg,.jpg,.jpeg">
+        <label for="photos" class="btn btn-secondary file-pick-btn">Take photo</label>
+        <span class="file-pick-name" id="photo-name">No photo selected</span>
+      </div>
+      <p class="field-hint" id="photos-hint">One photo per report. Don't crop or edit it.</p>
+      <ul id="file-list" class="file-list"></ul>
 
-    <!-- Inside the form and in the submit button's own place, not appended
-         after it. On a phone the button is the last thing the thumb touched,
-         so a confirmation rendered below it lands off-screen. -->
+      <!-- Sending lives with the photo it sends (#42), rather than floating
+           below every section as its own block. -->
+      <div id="submit-area">
+        <button type="submit" id="submit-btn" class="btn btn-primary">Send photo</button>
+        <p class="field-hint" id="submit-note"></p>
+      </div>
+    </section>
+
+    <!-- Directly after the Photo section rather than inside it. Inside would
+         put it under #report-form.is-done .field, and opacity applies to a
+         whole subtree — the confirmation would come up dimmed with the form it
+         is confirming, and no child rule can undo that. Here it still lands
+         where the button was, which is what #19 and #36 were about: on a phone
+         the button is the last thing the thumb touched, so a confirmation
+         rendered further down the page is a confirmation nobody sees. -->
     <div id="result" class="result" role="status" hidden></div>
 
   </form>
