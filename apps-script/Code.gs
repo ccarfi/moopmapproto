@@ -397,7 +397,14 @@ function applyToRows(p, fn) {
 // MAPCaptureTime, which build_desc.py takes from the filename stamp. That is
 // unique per submission, so confirmation is per photo rather than per batch,
 // and it works for the 2026-09-12 rows that predate the cluster_id column.
+// Why the last Mapillary check failed, if it did. A failed check and a photo
+// that never appeared look identical from the Sheet, and reporting the second
+// when it was the first is how the digest cried wolf about five photos that
+// were on the map all along.
+var lastCheckError = null;
+
 function confirmUploads() {
+  lastCheckError = null;
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
   if (!sheet || sheet.getLastRow() < 2) { return { confirmed: 0, waiting: 0 }; }
 
@@ -407,6 +414,7 @@ function confirmUploads() {
       iChapter = head.indexOf('bwb_chapter'),
       iFiles = head.indexOf('file_names');
   if (iStatus === -1 || iChapter === -1 || iFiles === -1) {
+    lastCheckError = 'the sheet is missing a column this needs';
     return { confirmed: 0, waiting: 0 };
   }
 
@@ -423,7 +431,7 @@ function confirmUploads() {
 
   Object.keys(pendingByChapter).forEach(function (ch) {
     var liveStamps = captureTimesFor(CHAPTERS[ch]);
-    if (liveStamps === null) { return; }   // fetch failed; try again next run
+    if (liveStamps === null) { return; }   // fetch failed; lastCheckError says why
 
     pendingByChapter[ch].forEach(function (r) {
       var stamp = stampOf(String(values[r][iFiles]));
@@ -460,11 +468,22 @@ function captureTimesFor(orgId) {
     var res;
     try {
       res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-    } catch (e) { return null; }
-    if (res.getResponseCode() !== 200) { return null; }
+    } catch (e) {
+      // Most often the trigger running without the external_request scope,
+      // which happens when it was created before this code called out to
+      // anything. Re-running installDigestTrigger fixes it.
+      lastCheckError = 'could not reach Mapillary: ' +
+                       (e && e.message ? e.message : e);
+      return null;
+    }
+    if (res.getResponseCode() !== 200) {
+      lastCheckError = 'Mapillary answered ' + res.getResponseCode();
+      return null;
+    }
 
     var body;
-    try { body = JSON.parse(res.getContentText()); } catch (e) { return null; }
+    try { body = JSON.parse(res.getContentText()); }
+    catch (e) { lastCheckError = 'Mapillary sent something unreadable'; return null; }
 
     (body.data || []).forEach(function (im) {
       if (im.captured_at) {
@@ -895,6 +914,19 @@ function dailyDigest() {
 // never have appeared, and no other check looks at this.
 function appendOverdue(lines, overdue) {
   if (!overdue.length) { return; }
+
+  // Not being able to look is not the same as having looked and found
+  // nothing. Say which one this is.
+  if (lastCheckError) {
+    lines.push('');
+    lines.push(overdue.length + ' upload' + (overdue.length === 1 ? '' : 's') +
+               ' could not be checked against Mapillary — ' + lastCheckError);
+    lines.push('  They may well be on the map already. Run confirmUploads from');
+    lines.push('  the Apps Script editor, authorise it, then re-run');
+    lines.push('  installDigestTrigger.');
+    return;
+  }
+
   lines.push('');
   lines.push(overdue.length + ' uploaded but still not on the map after ' +
              CONFIRM_OVERDUE_DAYS + ' days:');
@@ -915,8 +947,10 @@ function withoutQueue(overdue, takedowns) {
   var subject = takedowns.length
     ? 'MOOP Map — ' + takedowns.length + ' takedown' +
       (takedowns.length === 1 ? '' : 's') + ' outstanding'
-    : 'MOOP Map — ' + overdue.length + ' upload' +
-      (overdue.length === 1 ? '' : 's') + ' not showing';
+    : lastCheckError
+      ? 'MOOP Map — could not check Mapillary'
+      : 'MOOP Map — ' + overdue.length + ' upload' +
+        (overdue.length === 1 ? '' : 's') + ' not showing';
 
   MailApp.sendEmail(recipient(), subject, lines.join('\n'));
 }

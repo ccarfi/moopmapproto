@@ -323,7 +323,15 @@ on the map". They are not the same, and the gap is hours.
 > that predate the `mapillary_cluster_id` column.
 
 A failed Mapillary fetch leaves rows alone rather than reporting them missing:
-an outage must not look like imagery that never appeared.
+an outage must not look like imagery that never appeared. **The digest says
+which it was** — "could not be checked against Mapillary" with the reason,
+rather than "not on the map after 3 days".
+
+> If the digest reports that it could not check, the usual cause is the
+> trigger running without permission to call out to the internet. The script
+> only started doing that when confirmation was added, and a trigger created
+> before then keeps its old authorisation. Run `confirmUploads` once from the
+> editor, accept the prompt, then run `installDigestTrigger` again.
 
 To look yourself: **<https://moopmap.org/?refresh=1>** — the `?refresh=1`
 bypasses the session cache, which otherwise serves the counts from before the
