@@ -652,21 +652,54 @@
       : Math.round(bytes / 1024) + " KB";
   }
 
-  // The native control used to say this for us. Now that it is hidden, the
-  // name has to be echoed somewhere or picking a photo gives no feedback at
-  // all until the list below renders.
-  function renderPickedName() {
+  // Object URL for the preview. Held so it can be released — each call to
+  // createObjectURL pins the whole file in memory until it is revoked, and a
+  // 15 MB photo re-picked a few times adds up on a phone.
+  var thumbUrl = null;
+
+  // Swaps the picker for the photo it picked, and back again.
+  //
+  // Before: [Take photo] [No photo selected]. After: a thumbnail that is
+  // itself the label, so tapping the photo you have is how you get a different
+  // one. The button used to persist after the photo was taken, which invited
+  // taking it twice, and the filename beside it carried nothing a volunteer
+  // could use (#43).
+  function renderPicked() {
     var name = el("photo-name");
     if (!name) { return; }
     var picked = el("photos").files;
-    name.textContent = (picked && picked.length) ? picked[0].name
-                                                 : "No photo selected";
+    var file = (picked && picked.length) ? picked[0] : null;
+    var thumb = el("photo-thumb");
+    var img = el("photo-thumb-img");
+    var pick = document.querySelector(".file-pick-btn");
+
+    if (thumbUrl) { URL.revokeObjectURL(thumbUrl); thumbUrl = null; }
+
+    if (!file) {
+      thumb.hidden = true;
+      img.removeAttribute("src");
+      pick.hidden = false;
+      name.hidden = false;
+      name.textContent = "No photo selected";
+      return;
+    }
+
+    // An object URL in an <img>, never a canvas. Canvas would re-encode, and
+    // these are the exact bytes that get uploaded — see readBase64, which
+    // avoids canvas for the same reason. This only displays them, so EXIF
+    // survives untouched, and the browser honours the orientation tag when it
+    // draws, so a portrait photo is not shown on its side.
+    thumbUrl = URL.createObjectURL(file);
+    img.src = thumbUrl;
+    thumb.hidden = false;
+    pick.hidden = true;
+    name.hidden = true;
   }
 
   function onFilesPicked() {
     var picked = Array.prototype.slice.call(el("photos").files || []);
     files = [];
-    renderPickedName();
+    renderPicked();
 
     // maxPhotos is 1; slice keeps this honest if that ever changes.
     picked.slice(0, maxPhotos()).forEach(function (f) {
@@ -1037,7 +1070,7 @@
     files = [];
     submissionId = null;
     el("photos").value = "";
-    renderPickedName();
+    renderPicked();
     el("result").hidden = true;
     el("submit-area").hidden = false;
     el("report-form").classList.remove("is-done");

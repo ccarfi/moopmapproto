@@ -1086,3 +1086,36 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
    is nothing to expand into. Matches the button's padding so the two look
    identical in place. */
 .version-label { display: inline-block; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+
+/* The chosen photo, shown in place of the picker (#43). */
+.file-thumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.file-thumb img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #f3f4f6;
+}
+
+.file-thumb-change {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.file-thumb:hover .file-thumb-change { color: var(--fg); }
+
+/* [hidden] is a UA rule at low specificity, and .btn sets display, so it wins
+   and the button stays on screen next to the thumbnail that replaced it. */
+.file-thumb[hidden],
+.file-pick-btn[hidden],
+.file-pick-name[hidden] { display: none; }
