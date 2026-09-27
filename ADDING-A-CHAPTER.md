@@ -69,6 +69,11 @@ repo file over the live script silently reverts the allowlist and real
 submissions start failing with `Unknown chapter`. This has already happened
 once, to `bwb_colorado`.
 
+**Bump `CODE_VERSION`** while you are in the file. The report page shows it,
+so it is how you tell from a phone which backend you are talking to, and
+`console.py --check` compares it against the project's last-saved time to catch
+an edit that was never deployed.
+
 Then **Deploy → Manage deployments → pencil → Version: New version → Deploy**.
 
 > **Not "New deployment".** That mints a brand-new `/exec` URL and leaves the old
@@ -85,7 +90,7 @@ curl -sL "$(grep -o 'https://script.google.com[^"]*' config.js)"
 ```
 
 ```
-{"service":"moop-report","chapters":["bwb_south_bay","bwb_colorado","bwb_united_kingdom"],"ok":true}
+{"service":"moop-report","version":"2026-09-27.1","chapters":["bwb_south_bay","bwb_colorado","bwb_united_kingdom"],"ok":true}
 ```
 
 The new key must appear in that list. If it doesn't, the deploy didn't take.

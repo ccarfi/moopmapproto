@@ -52,6 +52,18 @@ var SHEET_TAB      = 'submissions';
 
 var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.token
 
+// KEEP IN STEP: bump this on every deploy, and make the date the date you
+// deployed. The report page shows it, so a phone can say which backend it is
+// talking to; tools/console.py --check compares it against when this project
+// was last saved, and an edit newer than the stamp means you saved without
+// redeploying — the #1 source of "why didn't my change take effect" noted at
+// the top of this file.
+//
+// Hand-set because a script cannot read its own deployment date. The front end
+// needs no equivalent: version.js works that out from the files GitHub Pages
+// serves, so there is nothing to bump on that side.
+var CODE_VERSION = '2026-09-27.1';
+
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
 //   uploaded  Mapillary accepted the sequence (a cluster_id came back)
@@ -186,9 +198,35 @@ function doGet() {
   // adminConfigured is a boolean on purpose — never echo the token itself.
   return ok({
     service: 'moop-report',
+    version: CODE_VERSION,
     chapters: Object.keys(CHAPTERS),
     adminConfigured: adminDenied({ adminToken: ADMIN_TOKEN }) === null
   });
+}
+
+// When this project was last saved. An Apps Script project is a Drive file, so
+// its edit time is readable from inside the script; its deployment date is not.
+function scriptUpdated() {
+  try {
+    return DriveApp.getFileById(ScriptApp.getScriptId()).getLastUpdated().toISOString();
+  } catch (err) {
+    // Not worth failing a status check over. But say so — a bare null here
+    // reads as "never edited", which is the opposite of "could not tell".
+    console.error('scriptUpdated failed: ' + err);
+    return null;
+  }
+}
+
+// True when the editor holds changes the /exec URL is not serving.
+//
+// Day granularity, because CODE_VERSION carries a date and not a time: two
+// edits on one day where only the first was deployed will not show up. It
+// catches the case that actually bites — an edit left sitting overnight.
+function editedSinceStamp() {
+  var when = scriptUpdated();
+  var stamped = String(CODE_VERSION).slice(0, 10);
+  if (!when || !/^\d{4}-\d{2}-\d{2}$/.test(stamped)) { return null; }
+  return when.slice(0, 10) > stamped;
 }
 
 // ----------------------------------------------------------------- drive
@@ -872,7 +910,10 @@ function confirmNow(p) {
   var out = {
     confirmed: res.confirmed,
     stillWaiting: res.waiting,
-    checkError: lastCheckError
+    checkError: lastCheckError,
+    codeVersion: CODE_VERSION,
+    scriptUpdated: scriptUpdated(),
+    editedSinceStamp: editedSinceStamp()
   };
 
   var chapter = p.chapter || 'bwb_south_bay';

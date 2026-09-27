@@ -620,6 +620,15 @@ def main():
         if not res.get('ok'):
             sys.exit('error: %s' % res.get('error'))
         print(json.dumps({k: v for k, v in res.items() if k != 'ok'}, indent=2))
+        # A boolean in the middle of that dump is easy to skim past, and this
+        # one means the /exec URL is not serving what is in the editor — which
+        # makes every other number above describe code you are not running.
+        if res.get('editedSinceStamp'):
+            print('\nWARNING: the script was last saved %s, after CODE_VERSION was\n'
+                  '         stamped %s. The /exec URL still serves the older\n'
+                  '         code. Deploy > Manage deployments > edit > New version,\n'
+                  '         and bump CODE_VERSION while you are in there.'
+                  % ((res.get('scriptUpdated') or '?')[:10], res.get('codeVersion')))
         return
 
     if args.list:

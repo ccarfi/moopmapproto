@@ -344,6 +344,11 @@ rather than "not on the map after 3 days".
 > `python3 tools/console.py --check` runs the confirmation and prints both
 > sides of the comparison, which is how this was finally pinned down after
 > three wrong guesses.
+>
+> It also warns when the script was saved more recently than `CODE_VERSION`
+> says it was stamped — you edited the project and never redeployed, so the
+> `/exec` URL is still serving the old code and every other number it printed
+> describes code you are not running.
 
 To look yourself: **<https://moopmap.org/?refresh=1>** — the `?refresh=1`
 bypasses the session cache, which otherwise serves the counts from before the

@@ -27,6 +27,7 @@ what GitHub Pages serves.
 | `HOW-TO-REPORT.md` | One-page guide for volunteers. |
 | `tools/build_desc.py` | Builds the upload description file from the Sheet, and gates the batch. |
 | `tools/mly_upload.py` | Wrapper around `mapillary_tools`, which crashes mid-upload without it. |
+| `version.js` | The build badge — tells a phone whether it is running the latest. |
 | `styles.css` | All styling. |
 
 ## Setup
@@ -122,6 +123,38 @@ build instead:
 ```bash
 gh api repos/ccarfi/moopmapproto/pages/builds/latest --jq '{status,commit:.commit[0:7]}'
 ```
+
+### Which build is this phone running?
+
+GitHub Pages serves the site with `Cache-Control: max-age=600`, so for ten
+minutes after a push a browser keeps running the old code with no sign of it.
+Chrome holds on longer in practice. The failure is quiet and expensive — a
+change gets declared broken when the browser never fetched it.
+
+`version.js` puts a small timestamp in the corner: top left under the zoom
+control on the map, at the foot of the report form. It is the deploy time of
+the newest file the page is actually running, read from `Last-Modified`.
+
+It is not a version constant. A constant only tells you what you are running,
+and on a kerb in Gilroy you won't remember what the latest is. Instead every
+file the page loaded is fetched twice — once from the cache, once past it —
+and the two `Last-Modified` headers are compared. Nothing to bump, nothing to
+forget, and it compares the deploy itself rather than a number standing in for
+it. Files are checked individually, so a fresh `report.html` holding a stale
+`app.js` is caught; one site-wide version string would call that current.
+
+When they differ the badge turns orange, moves to the top of the page and
+offers a reload. The reload refetches with `cache: "reload"`, which replaces
+what is stored — a plain reload would re-read the same stale entries and change
+nothing.
+
+Safari before 16.4 ignores the `cache` option and revalidates anyway, so there
+it can say "current" when the page is stale. It cannot fail the other way, so
+it will never send you to reload for nothing.
+
+The report page also shows `api`, the deployed `CODE_VERSION` from `Code.gs`.
+That half *is* a hand-set constant — a script cannot read its own deployment
+date — and it has to be bumped on every redeploy.
 
 ## How the data is fetched
 

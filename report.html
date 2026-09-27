@@ -88,10 +88,15 @@
 
   </form>
 
+  <!-- data-api: this page posts to the Apps Script, so the badge reports the
+       backend version alongside the front end's. -->
+  <div id="version" class="version version-page" hidden data-api></div>
+
 </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js"></script>
 <script src="report.js"></script>
+<script src="version.js"></script>
 </body>
 </html>
