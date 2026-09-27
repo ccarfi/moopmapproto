@@ -479,8 +479,14 @@ function stampOf(fileNames) {
 // a fetch failure so the caller leaves rows alone rather than reporting them
 // missing — an outage must not look like imagery that never appeared.
 function captureTimesFor(orgId) {
-  var url = 'https://graph.mapillary.com/images?organization_id=' + orgId +
-            '&fields=id,captured_at&limit=500&access_token=' + MAPILLARY_TOKEN;
+  // The token looks like MLY|123|abc, and a bare '|' is not legal in a URL.
+  // curl and Python let it through; UrlFetchApp refuses the whole request with
+  // "Invalid argument", which is why this worked from a shell and never from
+  // the script.
+  var url = 'https://graph.mapillary.com/images?organization_id=' +
+            encodeURIComponent(orgId) +
+            '&fields=id,captured_at&limit=500&access_token=' +
+            encodeURIComponent(MAPILLARY_TOKEN);
   var out = {}, pages = 0;
 
   while (url && pages < 20) {
@@ -491,8 +497,11 @@ function captureTimesFor(orgId) {
       // Most often the trigger running without the external_request scope,
       // which happens when it was created before this code called out to
       // anything. Re-running installDigestTrigger fixes it.
+      // Never repeat the token back. This one is read-only and public, but a
+      // diagnostic that prints credentials teaches a habit worth not having.
       lastCheckError = 'could not reach Mapillary: ' +
-                       (e && e.message ? e.message : e);
+                       String(e && e.message ? e.message : e)
+                         .replace(/access_token=[^&\s]*/g, 'access_token=***');
       // Loudly, as well as into the variable. Catching this and recording it
       // somewhere only the digest reads meant a run from the editor printed
       // "Execution completed" while fetching nothing — which is exactly the
