@@ -29,20 +29,18 @@ Tap **Tell us about MOOP**, then:
 2. **Choose File** — take a photo, or pick one from your library
 3. **Allow location** when your phone asks — it starts looking as soon as the
    page opens, and can take up to 30 seconds outdoors
-4. A **blue dot** shows where your phone thinks you are. Check the pin is on it
+4. Check the pin looks right
 5. **Send photo**
 
 **Use Safari on iPhone, or Chrome on Android.** Brave blocks location without
 asking you, and a photo with no location can't go on the map.
 
-**Wait for the blue dot.** While the phone is still looking, the map is greyed
-out and tapping it does nothing — that's deliberate, because a pin placed
-before your phone has found you is a guess. If it's taking too long, use the
-**I'll place it myself** link.
+**The location comes from your phone.** You can't place or move the pin
+yourself — hand-placed pins turned out to go wrong more often than they went
+right. The map is there to show you what your phone found, not to be tapped.
 
-**Placing it yourself means zooming in.** The map won't accept a tap until
-you're zoomed close enough to be accurate — on a zoomed-out map a fingertip
-covers several kilometres. Zoom to the spot you're actually standing, then tap.
+**If it can't find you**, the form will say so rather than let you guess. Step
+into the open and tap **Use my location** to try again.
 
 ![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 

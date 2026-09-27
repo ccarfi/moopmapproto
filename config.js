@@ -111,6 +111,19 @@ const CONFIG = {
     maxPhotos: 1,
     maxFileMB: 15,
 
+    // Whether a volunteer may place or drag the pin themselves.
+    //
+    // OFF after field testing: a hand-placed location ended in confusion or
+    // error often enough that the affordance cost more than it gave. Two
+    // photos went in 99 km and 107 km from where they were taken, and the
+    // guardrails built afterwards made the flow harder to explain without
+    // making the pins much more trustworthy.
+    //
+    // The capability is untouched — the click handler, the drag handler, the
+    // zoom gate and the device cross-check are all still here and still work.
+    // Setting this to true restores the affordances exactly as they were.
+    allowManualPlacement: false,
+
     // Below this zoom, tapping the map does not place a pin.
     //
     // A tap is only ever as precise as the zoom allows. At z9 a thumb covers

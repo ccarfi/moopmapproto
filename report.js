@@ -231,7 +231,14 @@
   // Placing by hand is available once the device has had its turn — it
   // succeeded and they want to correct it, it failed, or they said they would
   // rather do it themselves.
+  // The whole hand-placement path, behind one switch. Everything below it
+  // still works; nothing below it is reachable while it is off.
+  function manualPlacement() {
+    return !!(CONFIG.upload && CONFIG.upload.allowManualPlacement);
+  }
+
   function placingAllowed() {
+    if (!manualPlacement()) { return false; }
     return manualChosen || !!position ||
            geoState === "denied" || geoState === "timeout" ||
            geoState === "unavailable";
@@ -261,6 +268,20 @@
   function renderPlacingState() {
     var wrap = el("mini-map");
     var pick = el("loc-manual");
+
+    // With placement off the map is a display, not a control. Dim it only
+    // while a fix is actually being sought: "not yet" is worth saying, but a
+    // permanently grey box for someone whose location is blocked reads as a
+    // broken map, and the message beneath it already carries the meaning.
+    if (!manualPlacement()) {
+      if (wrap) {
+        wrap.classList.toggle("is-waiting", !position && geoState === "asking");
+      }
+      if (pick) { pick.hidden = true; }
+      if (el("loc-zoomhint")) { el("loc-zoomhint").hidden = true; }
+      return;
+    }
+
     var allowed = placingAllowed();
 
     if (wrap) { wrap.classList.toggle("is-waiting", !allowed); }
@@ -287,7 +308,7 @@
     position = { lat: lat, lng: lng, accuracy: accuracy, source: source };
 
     if (!marker) {
-      marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+      marker = L.marker([lat, lng], { draggable: manualPlacement() }).addTo(map);
       marker.on("dragend", function () {
         var p = marker.getLatLng();
         setPosition(p.lat, p.lng, null, "user-adjusted");
@@ -309,7 +330,9 @@
     var coarse = el("loc-coarse");
     var limit = (CONFIG.upload && CONFIG.upload.coarseAccuracyM) || 50;
     if (accuracy && accuracy > limit) {
-      coarse.textContent = "Rough fix — drag the pin to be exact.";
+      coarse.textContent = manualPlacement()
+        ? "Rough fix — drag the pin to be exact."
+        : "Rough fix — for a better one, move into the open and tap Use my location.";
       coarse.hidden = false;
     } else {
       coarse.hidden = true;
@@ -360,13 +383,24 @@
     var msg;
     if (geoState === "denied") {
       // One line on a phone, so these give the fix rather than the reason.
+      // Without hand-placement there is no "instead" to offer, so these say
+      // what to do about it rather than pointing at a fallback that is gone.
+      // Handling these cases properly is its own piece of work — see #38.
       msg = isBrave
-        ? "Brave blocks location. Tap the map instead."
-        : "Location blocked. Tap the map instead.";
+        ? (manualPlacement()
+            ? "Brave blocks location. Tap the map instead."
+            : "Brave blocks location. Open this page in Safari or Chrome.")
+        : (manualPlacement()
+            ? "Location blocked. Tap the map instead."
+            : "Location is blocked for this site. Allow it in your browser settings, then reload.");
     } else if (geoState === "timeout") {
-      msg = "No location yet. Tap the map instead.";
+      msg = manualPlacement()
+        ? "No location yet. Tap the map instead."
+        : "Couldn't find you. Step outside if you can, then tap Use my location.";
     } else if (geoState === "unavailable") {
-      msg = "Location unavailable. Tap the map instead.";
+      msg = manualPlacement()
+        ? "Location unavailable. Tap the map instead."
+        : "This device can't share a location.";
     } else {
       help.hidden = true;
       return;
