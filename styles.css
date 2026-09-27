@@ -887,6 +887,13 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 
 .field-hint.is-hint { color: var(--warn, #b45309); }
 
+/* The location notice carries steps now, not a sentence. Numbered, because
+   the order matters and people follow them one-handed while standing up. */
+#loc-help p { margin: 0; }
+#loc-help strong { display: block; margin-top: 10px; }
+#loc-help ol { margin: 6px 0 0; padding-left: 20px; }
+#loc-help li { margin: 3px 0; line-height: 1.45; }
+
 /* The map is not a target until the device has had its turn. Dimmed and
    inert, so "waiting" and "ready" are not the same picture. */
 .mini-map.is-waiting { opacity: .55; }

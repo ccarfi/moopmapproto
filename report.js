@@ -345,23 +345,81 @@
     updateSubmitNote();
   }
 
-  // Brave blocks geolocation without prompting, so its users see no permission
-  // dialog and no error — the request simply never resolves. Worth naming
-  // explicitly, because "allow location" is useless advice there.
+  // Brave used to be short-circuited straight to "blocked" on sight, because
+  // it appeared to swallow geolocation silently. Field testing says otherwise:
+  // Brave and Chrome on iOS both work flawlessly once Location Services is
+  // enabled for the app in iOS Settings. What looked like a browser blocking
+  // requests was the operating system never letting the browser ask.
+  //
+  // So detection now only names the app in the instructions. Declaring it
+  // broken would deny a working browser its fix — and since #37 removed
+  // hand-placement, that would leave the volunteer unable to report at all.
   function detectBrave() {
+    if (/Brave\//.test(navigator.userAgent)) { isBrave = true; return; }
     try {
       if (navigator.brave && typeof navigator.brave.isBrave === "function") {
-        navigator.brave.isBrave().then(function (v) {
-          isBrave = !!v;
-          // Don't make Brave users sit out a 30 second count that cannot
-          // finish. As soon as we know, give them the way through.
-          if (isBrave && !position) {
-            el("loc-status").textContent = "";
-            setGeoState("denied");
-          }
-        });
+        navigator.brave.isBrave().then(function (v) { isBrave = !!v; });
       }
     } catch (e) { /* not Brave */ }
+  }
+
+  // Which browser, so the instructions can name the row to tap in Settings.
+  // Every iOS browser is WebKit underneath, so this is about the app the
+  // volunteer is holding, not the engine.
+  function platform() {
+    var ua = navigator.userAgent;
+    // iPadOS reports itself as a Mac, so a touch-capable "MacIntel" is taken
+    // as an iPad — but only when the UA does not say Android, because an
+    // emulated Android on a Mac satisfies both halves and would otherwise be
+    // handed iPhone instructions.
+    var android = /Android/.test(ua);
+    var iOS = /iP(hone|ad|od)/.test(ua) ||
+              (!android && navigator.platform === "MacIntel" &&
+               navigator.maxTouchPoints > 1);
+    var app = /CriOS\//.test(ua)  ? "Chrome"
+            : /EdgiOS\//.test(ua) ? "Edge"
+            : /FxiOS\//.test(ua)  ? "Firefox"
+            : /Brave\//.test(ua) || isBrave ? "Brave"
+            : iOS ? "Safari"
+            : /Chrome\//.test(ua) ? "Chrome"
+            : /Firefox\//.test(ua) ? "Firefox" : null;
+    return { iOS: iOS, android: android, app: app };
+  }
+
+  // Two separate permissions have to be right on iOS, and the outer one is the
+  // one that actually caught people out: the OS deciding whether the browser
+  // app may know where it is at all. A volunteer who has only ever been told
+  // "allow location" will look for a prompt that never appears.
+  function locationSteps() {
+    var p = platform();
+    var app = p.app || "your browser";
+
+    if (p.iOS) {
+      return {
+        title: "Turn on location for " + app,
+        steps: [
+          "Open Settings, then Privacy & Security, then Location Services",
+          "Make sure Location Services is on",
+          "Tap " + app + " and choose \u201cWhile Using the App\u201d",
+          "Come back here \u2014 it will try again on its own"
+        ]
+      };
+    }
+
+    if (p.android) {
+      // Android settings differ enough between manufacturers that naming exact
+      // menus would be wrong as often as right. Name what to look for instead.
+      return {
+        title: "Turn on location for " + app,
+        steps: [
+          "Check Location is switched on in your phone's settings",
+          "In your app settings, allow Location for " + app,
+          "Come back here \u2014 it will try again on its own"
+        ]
+      };
+    }
+
+    return null;
   }
 
   function setGeoState(state) {
@@ -386,17 +444,13 @@
       // Without hand-placement there is no "instead" to offer, so these say
       // what to do about it rather than pointing at a fallback that is gone.
       // Handling these cases properly is its own piece of work — see #38.
-      msg = isBrave
-        ? (manualPlacement()
-            ? "Brave blocks location. Tap the map instead."
-            : "Brave blocks location. Open this page in Safari or Chrome.")
-        : (manualPlacement()
-            ? "Location blocked. Tap the map instead."
-            : "Location is blocked for this site. Allow it in your browser settings, then reload.");
+      msg = manualPlacement()
+        ? "Location blocked. Tap the map instead."
+        : "This page can't see where you are.";
     } else if (geoState === "timeout") {
       msg = manualPlacement()
         ? "No location yet. Tap the map instead."
-        : "Couldn't find you. Step outside if you can, then tap Use my location.";
+        : "Couldn't find you. This is usually location services being off.";
     } else if (geoState === "unavailable") {
       msg = manualPlacement()
         ? "Location unavailable. Tap the map instead."
@@ -406,8 +460,47 @@
       return;
     }
 
-    help.textContent = msg;
+    var steps = locationSteps();
+    help.textContent = "";
+
+    var line = document.createElement("p");
+    line.textContent = msg;
+    help.appendChild(line);
+
+    if (steps) {
+      var h = document.createElement("strong");
+      h.textContent = steps.title;
+      help.appendChild(h);
+
+      var ol = document.createElement("ol");
+      steps.steps.forEach(function (stepText) {
+        var li = document.createElement("li");
+        li.textContent = stepText;
+        ol.appendChild(li);
+      });
+      help.appendChild(ol);
+    }
+
     help.hidden = false;
+  }
+
+  // Worth another attempt: nothing found yet, and the last one actually
+  // failed rather than still being in flight.
+  function worthRetrying() {
+    return !position &&
+           (geoState === "denied" || geoState === "timeout" ||
+            geoState === "unavailable");
+  }
+
+  function retryOnShow() {
+    // No visibility test: a pageshow means this page is being displayed,
+    // including a back-navigation restored from the cache.
+    if (worthRetrying()) { requestLocation(); }
+  }
+
+  function retryOnVisible() {
+    if (document.visibilityState !== "visible") { return; }
+    if (worthRetrying()) { requestLocation(); }
   }
 
   function requestLocation() {
@@ -415,6 +508,8 @@
     // Locate-on-load and the retry when a photo is attached can both fire.
     // Two acquisitions means two tickers writing to the same status line.
     if (geoState === "asking") { return; }
+    // A retry from a failed state is a new attempt, so the watchdog and the
+    // counter start over rather than inheriting the last one.
 
     setGeoState("asking");
 
@@ -904,6 +999,15 @@
     el("loc-status").textContent = "Finding your location…";
 
     el("loc-manual").onclick = chooseManual;
+
+    // The instructions send them to Settings and back. Trying again on return
+    // is what makes "come back here — it will try again on its own" true,
+    // instead of leaving them on a stale error they have already fixed.
+    //
+    // Only from a failed state, so a volunteer who simply switched apps for a
+    // moment is not re-prompted for nothing.
+    document.addEventListener("visibilitychange", retryOnVisible);
+    window.addEventListener("pageshow", retryOnShow);
 
     detectBrave();
     checkGeoPermission();

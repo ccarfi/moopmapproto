@@ -39,8 +39,17 @@ asking you, and a photo with no location can't go on the map.
 yourself — hand-placed pins turned out to go wrong more often than they went
 right. The map is there to show you what your phone found, not to be tapped.
 
-**If it can't find you**, the form will say so rather than let you guess. Step
-into the open and tap **Use my location** to try again.
+**If it can't find you**, the form will say so rather than let you guess — and
+it will tell you how to fix it.
+
+Nine times out of ten it's **iOS Location Services being off for your browser**,
+not the browser itself. Chrome and Brave both work fine once you turn it on:
+
+> Settings → Privacy & Security → Location Services → *your browser* → While
+> Using the App
+
+Come back to the page afterwards and it tries again on its own. If it still
+can't find you, step into the open and tap **Use my location**.
 
 ![FPO 3 — the form filled in, ready to send](fpo-3-form.png)
 
