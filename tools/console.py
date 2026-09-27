@@ -11,11 +11,27 @@ WHY THIS EXISTS
     cannot express.
 
 USE
-    export MOOPMAP_ADMIN_TOKEN='...'
-    python3 tools/console.py <batch folder> --sheet <submissions.csv>
+    export MOOPMAP_ADMIN_TOKEN='...'          # never in this repo
+    export MAPILLARY_USER='<your mapillary username>'
+    python3 tools/console.py
 
-    Opens http://127.0.0.1:8777 . Review, press Upload, and the Sheet is
-    written for you.
+    No arguments. It opens http://127.0.0.1:8777 on the queue — what is still
+    sitting in Drive's inbox/ — with a Download and review button per batch.
+    Start it once and leave it running; a batch is picked, reviewed, uploaded
+    and recorded without going back to the terminal.
+
+    MAPILLARY_USER is only needed to upload. Without it reviewing still works
+    and startup says so.
+
+    Naming a folder still works for a batch already on disk:
+
+        python3 tools/console.py ./bwb_south_bay/2026-09-24
+
+    One-shot commands that print and exit instead of serving:
+
+        --list                      what is waiting in inbox/
+        --check                     run the Mapillary confirmation sweep now
+        --move CHAPTER DATE TO      move a batch to uploaded/ or failed/
 
 WHAT IT DOES NOT DO
     Bind to anything but localhost. It holds the admin token and can publish
@@ -23,9 +39,6 @@ WHAT IT DOES NOT DO
 
     Put the token in the page. It stays server-side, used only when talking to
     the Apps Script.
-
-    Move folders in Drive. That needs the move-batch action (see the issue);
-    until then the console tells you what to move.
 """
 
 import argparse
