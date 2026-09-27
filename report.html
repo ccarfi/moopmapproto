@@ -41,8 +41,17 @@
     </section>
 
     <section class="field">
-      <label class="field-label" for="photos">Photo</label>
-      <input type="file" id="photos" class="field-input" accept="image/jpeg,.jpg,.jpeg">
+      <span class="field-label">Photo</span>
+      <!-- The native control renders "Choose File / No file chosen" from
+           browser shadow DOM, which cannot be relabelled. So the input is
+           visually hidden (not display:none — it stays focusable and keeps
+           working with a keyboard) and a label styled as a button drives it.
+           The label's text becomes the input's accessible name. -->
+      <div class="file-pick">
+        <input type="file" id="photos" class="file-input-hidden" accept="image/jpeg,.jpg,.jpeg">
+        <label for="photos" class="btn btn-secondary file-pick-btn">Choose photo</label>
+        <span class="file-pick-name" id="photo-name">No photo selected</span>
+      </div>
       <p class="field-hint" id="photos-hint">One photo per report. Don't crop or edit it.</p>
       <ul id="file-list" class="file-list"></ul>
     </section>

@@ -652,9 +652,21 @@
       : Math.round(bytes / 1024) + " KB";
   }
 
+  // The native control used to say this for us. Now that it is hidden, the
+  // name has to be echoed somewhere or picking a photo gives no feedback at
+  // all until the list below renders.
+  function renderPickedName() {
+    var name = el("photo-name");
+    if (!name) { return; }
+    var picked = el("photos").files;
+    name.textContent = (picked && picked.length) ? picked[0].name
+                                                 : "No photo selected";
+  }
+
   function onFilesPicked() {
     var picked = Array.prototype.slice.call(el("photos").files || []);
     files = [];
+    renderPickedName();
 
     // maxPhotos is 1; slice keeps this honest if that ever changes.
     picked.slice(0, maxPhotos()).forEach(function (f) {
@@ -913,6 +925,7 @@
     files = [];
     submissionId = null;
     el("photos").value = "";
+    renderPickedName();
     el("result").hidden = true;
     el("submit-area").hidden = false;
     el("report-form").classList.remove("is-done");
