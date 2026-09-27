@@ -26,7 +26,7 @@ On a phone the panel starts closed. Tap the icon in the top right to open it.
 Tap **Tell us about MOOP**, then:
 
 1. Chapter → **BWB United Kingdom**
-2. **Choose photo** — take one, or pick it from your library
+2. **Take photo** — take one now, or choose from your library
 3. **Allow location** when your phone asks — it starts looking as soon as the
    page opens, and can take up to 30 seconds outdoors
 4. Check the pin looks right
