@@ -765,12 +765,37 @@ function moveBatch(p) {
                 to: p.to + '/' + p.chapter + '/' });
   }
 
-  // Never merge into an existing destination. Two batches with the same date
-  // in one place is a mess to untangle, and the usual cause is a re-run that
-  // should have been investigated instead.
-  if (existingChild(destChapter, p.date)) {
-    return fail('Destination already exists: ' + p.to + '/' + p.chapter +
-                '/' + p.date + ' — refusing to merge');
+  // A destination with this date already there is the ordinary case, not a
+  // suspicious one: a chapter reports in the morning, that batch is uploaded
+  // and filed, and the afternoon's reports make the Apps Script recreate
+  // inbox/<chapter>/<date>. Refusing to merge stranded the second batch in
+  // inbox/ for good — uploaded in the Sheet, invisible to the digest, and
+  // still sitting in the queue.
+  //
+  // The folder's identity is chapter plus date, so the same date is the same
+  // bucket. Merge the files into it and remove the emptied source.
+  var existing = existingChild(destChapter, p.date);
+  if (existing) {
+    // Look before moving anything. Checking as we went would leave a batch
+    // half moved when the clash came last — the worst of both places.
+    var pending = [], blocked = [];
+    var it = source.getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      // Filenames carry a submission uuid, so a clash means the same
+      // submission twice — worth stopping on rather than quietly duplicating.
+      if (existing.getFilesByName(f.getName()).hasNext()) { blocked.push(f.getName()); }
+      else { pending.push(f); }
+    }
+    if (blocked.length) {
+      return fail('Already in ' + p.to + '/' + p.chapter + '/' + p.date +
+                  ': ' + blocked.join(', ') + ' — nothing moved');
+    }
+
+    pending.forEach(function (f) { f.moveTo(existing); });
+    source.setTrashed(true);
+    return ok({ moved: p.date, merged: pending.length,
+                to: p.to + '/' + p.chapter + '/' });
   }
 
   source.moveTo(destChapter);

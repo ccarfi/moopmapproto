@@ -270,7 +270,15 @@ def pick_batch():
     return [b['chapter'], b['date']]
 
 
-def build_batch(folder, rows, chapter_override):
+def build_batch(folder, rows, chapter_override, only=None):
+    """`only` is the set of filenames Drive says are in this batch.
+
+    Without it this listed whatever happened to be in the local cache, which
+    is not the same thing: a photo fetched earlier and since filed to
+    uploaded/ stays on disk forever. That showed seven photos for a batch of
+    five, and a grid that does not match the batch is a grid that can send the
+    wrong thing.
+    """
     accounts = build_desc.load_config(REPO)
     by_key = {a['key']: a for a in accounts}
 
@@ -287,6 +295,8 @@ def build_batch(folder, rows, chapter_override):
         if name.startswith('.') or not os.path.isfile(path):
             continue
         if name.lower().endswith('.json'):
+            continue
+        if only is not None and name not in only:
             continue
         sid = record_upload.submission_id(name)
         info = classify(name, rows.get(sid), account, done)
@@ -537,8 +547,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == '/api/load':
             chapter, date = payload.get('chapter'), payload.get('date')
             folder = os.path.join(STATE['cache'], chapter, date)
+            # Drive decides what is in the batch, not the local directory.
+            listing = drive_call('list-inbox', chapter=chapter, date=date)
+            if not listing.get('ok'):
+                return self._send(200, {'ok': False, 'error': listing.get('error')})
+            only = set(f['name'] for f in (listing.get('files') or []))
             try:
-                STATE['batch'] = build_batch(folder, rows_from_sheet(), chapter)
+                STATE['batch'] = build_batch(folder, rows_from_sheet(),
+                                             chapter, only)
             except SystemExit as e:
                 return self._send(200, {'ok': False, 'error': str(e)})
             return self._send(200, STATE['batch'])
