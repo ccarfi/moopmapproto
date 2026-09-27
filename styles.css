@@ -958,6 +958,10 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
    between two cards. */
 #submit-area { margin-top: 14px; }
 
+/* Empty far more often than not now (#44), and an empty <p> still carries its
+   margin — which would leave a gap under the button for nothing. */
+#submit-note:empty { display: none; }
+
 #submit-area[hidden] { display: none; }
 
 /* Stand the form down once a report is sent: still readable, so someone can

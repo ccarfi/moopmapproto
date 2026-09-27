@@ -1011,11 +1011,13 @@
 
     if (n === 0 && rejected()) {
       note.textContent = "That file can't be used — choose another.";
-    } else if (n === 0) {
-      note.textContent = "Choose a photo.";
-    } else if (!position) {
+    } else if (n > 0 && !position) {
       note.textContent = "Add a location first.";
     } else {
+      // Nothing worth saying. "Choose a photo." sat here and only restated the
+      // section's own hint two lines above it (#44) — an empty picker over a
+      // disabled Send button is not a mystery. This line now speaks only when
+      // it knows something the page is not already showing.
       note.textContent = "";
     }
   }
