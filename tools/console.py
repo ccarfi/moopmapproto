@@ -591,6 +591,8 @@ def main():
                     help="print what is still in Drive's inbox/ and exit")
     ap.add_argument('--move', nargs=3, metavar=('CHAPTER', 'DATE', 'TO'),
                     help='move one batch out of inbox/ into uploaded/ or failed/')
+    ap.add_argument('--check', action='store_true',
+                    help='run the Mapillary confirmation now and report what it saw')
     ap.add_argument('--batch', nargs=2, metavar=('CHAPTER', 'DATE'),
                     help='fetch this batch from Drive and review it — no '
                          'download, no unzip, no CSV export')
@@ -613,6 +615,13 @@ def main():
     STATE['user_name'] = args.user_name or os.environ.get('MAPILLARY_USER')
 
     # --list only reads Drive, so it must not ask for a Mapillary account.
+    if args.check:
+        res = drive_call('confirm-now', chapter=args.chapter or 'bwb_south_bay')
+        if not res.get('ok'):
+            sys.exit('error: %s' % res.get('error'))
+        print(json.dumps({k: v for k, v in res.items() if k != 'ok'}, indent=2))
+        return
+
     if args.list:
         res = drive_call('list-inbox')
         if not res.get('ok'):

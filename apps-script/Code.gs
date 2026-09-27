@@ -132,7 +132,7 @@ function doPost(e) {
     if (p.action === 'mark-uploaded' || p.action === 'mark-failed' ||
         p.action === 'list-inbox'    || p.action === 'move-batch' ||
         p.action === 'fetch-file'    || p.action === 'sheet-rows' ||
-        p.action === 'remove-submission') {
+        p.action === 'remove-submission' || p.action === 'confirm-now') {
       var denied = adminDenied(p);
       if (denied) { return denied; }
       if (p.action === 'mark-uploaded') { return markUploaded(p); }
@@ -141,6 +141,7 @@ function doPost(e) {
       if (p.action === 'fetch-file')    { return fetchFile(p); }
       if (p.action === 'sheet-rows')    { return sheetRows(p); }
       if (p.action === 'remove-submission') { return removeSubmission(p); }
+      if (p.action === 'confirm-now')       { return confirmNow(p); }
       return moveBatch(p);
     }
 
@@ -827,6 +828,51 @@ function existingChild(parent, name) {
   if (!parent) { return null; }
   var it = parent.getFoldersByName(name);
   return it.hasNext() ? it.next() : null;
+}
+
+// Runs the confirmation and reports what it saw, because a sweep that
+// quietly does nothing is indistinguishable from one that had nothing to do.
+// Everything here is a symptom of the same question: did the capture time in
+// the Sheet match a capture time on Mapillary, and if not, what did each side
+// actually say?
+function confirmNow(p) {
+  var res = confirmUploads();
+  var out = {
+    confirmed: res.confirmed,
+    stillWaiting: res.waiting,
+    checkError: lastCheckError
+  };
+
+  var chapter = p.chapter || 'bwb_south_bay';
+  out.chapter = chapter;
+  out.orgId = CHAPTERS[chapter] || '(not a known chapter)';
+
+  // What the Sheet expects.
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_TAB);
+  var values = sheet.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var iS = head.indexOf('status'), iC = head.indexOf('bwb_chapter'),
+      iF = head.indexOf('file_names');
+  var expected = [];
+  for (var r = 1; r < values.length && expected.length < 5; r++) {
+    if (String(values[r][iS]).trim() !== 'uploaded') { continue; }
+    if (String(values[r][iC]).trim() !== chapter) { continue; }
+    expected.push(stampOf(String(values[r][iF])));
+  }
+  out.sheetExpects = expected;
+
+  // What Mapillary actually reports, in the same shape.
+  var live = captureTimesFor(CHAPTERS[chapter]);
+  if (live === null) {
+    out.mapillarySays = null;
+    out.checkError = lastCheckError;
+  } else {
+    var keys = Object.keys(live);
+    out.mapillaryCount = keys.length;
+    out.mapillarySample = keys.sort().slice(-5);
+    out.matches = expected.filter(function (e) { return e && live[e]; });
+  }
+  return ok(out);
 }
 
 // ---------------------------------------------------------------- digest
