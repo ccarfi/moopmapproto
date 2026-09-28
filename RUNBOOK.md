@@ -345,6 +345,10 @@ rather than "not on the map after 3 days".
 > sides of the comparison, which is how this was finally pinned down after
 > three wrong guesses.
 >
+> A row listing several files confirms if **any** of them is live. That matters
+> for rows written before #45, where a retry stored the same photo more than
+> once and only the first filename used to be checked.
+>
 > It also warns when the script was saved more recently than `CODE_VERSION`
 > says it was stamped — you edited the project and never redeployed, so the
 > `/exec` URL is still serving the old code and every other number it printed
@@ -353,6 +357,27 @@ rather than "not on the map after 3 days".
 To look yourself: **<https://moopmap.org/?refresh=1>** — the `?refresh=1`
 bypasses the session cache, which otherwise serves the counts from before the
 upload.
+
+## If a batch is refused for duplicates
+
+```
+error: the same photo appears in this folder more than once.
+
+  submission 700fa7fe-…, photo 1 — 3 copies:
+      2026-09-28T19-36-24Z__700fa7fe-…__1.jpg
+      2026-09-28T19-36-48Z__700fa7fe-…__1.jpg
+      2026-09-28T19-37-51Z__700fa7fe-…__1.jpg
+```
+
+One photo stored several times, from a volunteer tapping **Retry** on a send
+that had in fact succeeded and only lost its reply. Delete all but one of each
+and run it again; which copy you keep makes no difference, because the
+confirmation step checks every filename on the row.
+
+Fixed server-side in #45 — `doPost` now answers a retry with the file it
+already has — so this should only ever fire for a batch collected before that
+deployed. The check stays because the cost of being wrong is published
+imagery, and taking that down is a great deal more work than deleting a file.
 
 ## Removing a submission
 

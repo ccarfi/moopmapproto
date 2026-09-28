@@ -62,7 +62,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-09-27.1';
+var CODE_VERSION = '2026-09-28.1';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
@@ -180,9 +180,36 @@ function doPost(e) {
     var bytes = Utilities.base64Decode(p.dataBase64);
     if (bytes.length > MAX_BYTES) { return fail('Photo too large'); }
 
+    var folder = folderFor(p);
+
+    // A retry, not a second photo.
+    //
+    // The first attempt may well have succeeded and lost only its receipt:
+    // Apps Script answers /exec with a 302 to script.googleusercontent.com,
+    // and a failure on that second hop arrives after this function has already
+    // written everything. The phone sees "upload failed", the volunteer taps
+    // Retry, and without this the photo is stored again under a new name.
+    // That is how one submission ended up as three files on 2026-09-28 (#45).
+    var already = existingFile(folder, p);
+    if (already) {
+      // Logged because it is the only trace a field retry leaves. How often
+      // this fires is the measure of how badly the 302 hop is behaving out
+      // there, and nothing else records it.
+      console.log('duplicate submission ' + p.submissionId + ' photo ' + p.index +
+                  ' — already stored as ' + already.getName());
+      // ok, not an error: the photo IS stored. Reporting failure here would
+      // send the phone round again, which is the loop this is closing.
+      return ok({
+        submissionId: p.submissionId,
+        fileId: already.getId(),
+        fileName: already.getName(),
+        duplicate: true
+      });
+    }
+
     var name = fileName(p);
     var blob = Utilities.newBlob(bytes, p.mimeType || 'image/jpeg', name);
-    var file = folderFor(p).createFile(blob);
+    var file = folder.createFile(blob);
 
     recordRow(p, name);
 
@@ -238,6 +265,27 @@ function folderFor(p) {
   return child(child(child(root, 'inbox'), p.bwb_chapter), today());
 }
 
+// What an earlier attempt at this exact (submission, index) would have left.
+//
+// Matched on the submission id and index rather than the whole filename,
+// because fileName() stamps new Date() at request time — so a retry never
+// collides by name, which is precisely why nothing caught this before.
+//
+// Drive has no index to query, so this walks the day's folder. Those hold one
+// chapter's reports for one day: tens of files, not thousands.
+function existingFile(folder, p) {
+  var tail = '__' + p.submissionId + '__' + p.index;
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    // The tail is followed only by the extension, so comparing the end of the
+    // extension-stripped name is exact rather than a loose contains test.
+    var base = f.getName().replace(/\.[A-Za-z0-9]+$/, '');
+    if (base.slice(-tail.length) === tail) { return f; }
+  }
+  return null;
+}
+
 function child(parent, name) {
   var it = parent.getFoldersByName(name);
   return it.hasNext() ? it.next() : parent.createFolder(name);
@@ -257,6 +305,9 @@ function fileName(p) {
 
 // One row per submission. Photos arrive as separate requests, so the first
 // creates the row and the rest append their filename to it.
+//
+// Only genuinely new photos reach here — doPost answers a retry before calling
+// this, so the append below no longer counts the same photo twice (#45).
 function recordRow(p, name) {
   var sheet = sheetTab();
   var ids = sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), 1).getValues();
@@ -485,8 +536,11 @@ function confirmUploads() {
     if (liveStamps === null) { return; }   // fetch failed; lastCheckError says why
 
     pendingByChapter[ch].forEach(function (r) {
-      var stamp = stampOf(String(values[r][iFiles]));
-      if (stamp && liveStamps[stamp]) {
+      // Any one of the row's files being live means the report is live.
+      var isLive = stampsOf(String(values[r][iFiles])).some(function (st) {
+        return liveStamps[st];
+      });
+      if (isLive) {
         sheet.getRange(r + 1, iStatus + 1).setValue('live');
         if (iConfirmed !== -1) {
           sheet.getRange(r + 1, iConfirmed + 1).setValue(now);
@@ -507,10 +561,15 @@ function confirmUploads() {
   return { confirmed: confirmed, waiting: waiting };
 }
 
-// 2026-09-24T22-53-25Z__<submission id>__1.jpg -> 2026-09-24T22-53-25Z
-function stampOf(fileNames) {
-  var m = String(fileNames).match(/(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)/);
-  return m ? m[1] : null;
+// 2026-09-24T22-53-25Z__<submission id>__1.jpg -> ['2026-09-24T22-53-25Z']
+//
+// Every stamp in the cell, not just the first. A row can list more than one
+// file — a genuine multi-photo submission, or a row written before retries
+// were deduplicated (#45). Reading only the first meant a row whose surviving
+// file was any of the others could never be confirmed, and would sit in
+// 'uploaded' for good while the digest nagged about it.
+function stampsOf(fileNames) {
+  return String(fileNames).match(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z/g) || [];
 }
 
 // Every capture time this organization has live, as a lookup. Returns null on
@@ -930,7 +989,7 @@ function confirmNow(p) {
   for (var r = 1; r < values.length && expected.length < 5; r++) {
     if (String(values[r][iS]).trim() !== 'uploaded') { continue; }
     if (String(values[r][iC]).trim() !== chapter) { continue; }
-    expected.push(stampOf(String(values[r][iF])));
+    expected.push(stampsOf(String(values[r][iF])).join(' or '));
   }
   out.sheetExpects = expected;
 

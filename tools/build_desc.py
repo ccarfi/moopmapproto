@@ -106,6 +106,34 @@ def main():
     if not everything:
         sys.exit('error: no photos in %s' % args.folder)
 
+    # The same (submission, photo) twice is one photo stored twice — a retry
+    # the server could not tell from a second photo (#45).
+    #
+    # Refused, not warned about: this tool walks the folder, so every copy
+    # would get a desc entry and Mapillary would publish all of them at one
+    # set of coordinates. Un-publishing is the takedown path, which is a great
+    # deal more work than deleting a file here.
+    #
+    # Fixed server-side in #45, so this should not fire for a batch collected
+    # after that deployed. It stays anyway: the cost of being wrong is public.
+    seen = {}
+    for name in photos:
+        m = FILENAME_RE.match(name)
+        if m:
+            seen.setdefault((m.group('sid'), m.group('idx')), []).append(name)
+
+    dupes = sorted((k, v) for k, v in seen.items() if len(v) > 1)
+    if dupes:
+        out = ['error: the same photo appears in this folder more than once.', '']
+        for (sid, idx), names in dupes:
+            out.append('  submission %s, photo %s — %d copies:' % (sid, idx, len(names)))
+            out.extend('      %s' % n for n in sorted(names))
+            out.append('')
+        out.append('Delete all but one of each, then run this again. Which one you')
+        out.append('keep does not matter: the confirmation step checks every')
+        out.append('filename listed on the row, not just the first.')
+        sys.exit('\n'.join(out))
+
     rows = {}
     with open(args.sheet, newline='', encoding='utf-8-sig') as fh:
         for row in csv.DictReader(fh):
