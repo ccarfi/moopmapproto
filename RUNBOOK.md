@@ -337,9 +337,18 @@ rather than "not on the map after 3 days".
 >
 > Apps Script infers scopes from the code, and it missed this one — the
 > `UrlFetchApp` call sits inside a try/catch. `apps-script/appsscript.json`
-> declares all five scopes explicitly. Paste it in (Project Settings → show
+> declares all six scopes explicitly. Paste it in (Project Settings → show
 > the manifest), save, run any function from the editor and accept the
 > prompt, then redeploy a new version and re-run `installDigestTrigger`.
+>
+> **An explicit list replaces the inferred one rather than adding to it.**
+> The first version of that manifest listed five scopes and so dropped
+> `userinfo.email`, which no line of the code names but
+> `Session.getEffectiveUser()` needs. The digest then failed every morning it
+> had something to report — `Specified permissions are not sufficient to call
+> Session.getEffectiveUser` — while the mornings it had nothing to say
+> returned early, above that call, and looked fine. Two days passed before
+> anyone noticed, because a broken digest and a clear queue are both silence.
 >
 > `python3 tools/console.py --check` runs the confirmation and prints both
 > sides of the comparison, which is how this was finally pinned down after

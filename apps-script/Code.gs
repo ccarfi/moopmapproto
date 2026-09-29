@@ -10,12 +10,24 @@
  * That is why moving to a custom domain needed no change here.
  *
  * SCOPES
- *   appsscript.json in this folder lists the five OAuth scopes this script
+ *   appsscript.json in this folder lists the six OAuth scopes this script
  *   needs. Apps Script normally infers scopes from the code, but inference
  *   missed script.external_request here — the UrlFetchApp call sits inside a
  *   try/catch, and the deployment ran for days refusing to fetch while
  *   reporting nothing. Declaring them explicitly forces the authorisation
  *   prompt and makes the requirement reviewable.
+ *
+ *   AN EXPLICIT LIST REPLACES THE INFERRED ONE. It does not add to it. So the
+ *   list has to carry every scope, including the ones inference would have
+ *   supplied for free — and the cost of forgetting one is silent. Declaring
+ *   the five above dropped userinfo.email, which nothing in the code mentions
+ *   by name but Session.getEffectiveUser() needs; the daily digest then threw
+ *   every morning it had something to say:
+ *
+ *     Specified permissions are not sufficient to call Session.getEffectiveUser
+ *
+ *   Before editing that list, check it against every Google service call in
+ *   this file, not against the ones that look like they need permission.
  *
  *   To apply it: Project Settings -> tick "Show appsscript.json manifest file
  *   in editor", open the file, paste this one in, save, then run any function
@@ -62,7 +74,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-09-28.1';
+var CODE_VERSION = '2026-09-29.1';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
