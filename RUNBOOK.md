@@ -358,6 +358,13 @@ rather than "not on the map after 3 days".
 > for rows written before #45, where a retry stored the same photo more than
 > once and only the first filename used to be checked.
 >
+> It also reports the digest's health — when it last completed, and which
+> triggers are installed — and says so loudly if the digest has gone quiet.
+> That matters because the digest is silent by design when the queue is clear,
+> so silence alone never distinguished "nothing to do" from "I am broken".
+> It stayed broken for three days on a missing scope before anyone noticed
+> (#46).
+>
 > It also warns when the script was saved more recently than `CODE_VERSION`
 > says it was stamped — you edited the project and never redeployed, so the
 > `/exec` URL is still serving the old code and every other number it printed

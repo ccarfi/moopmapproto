@@ -74,7 +74,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-09-29.1';
+var CODE_VERSION = '2026-09-29.2';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
@@ -987,6 +987,9 @@ function confirmNow(p) {
     editedSinceStamp: editedSinceStamp()
   };
 
+  var health = digestHealth();
+  Object.keys(health).forEach(function (k) { out[k] = health[k]; });
+
   var chapter = p.chapter || 'bwb_south_bay';
   out.chapter = chapter;
   out.orgId = CHAPTERS[chapter] || '(not a known chapter)';
@@ -1033,7 +1036,14 @@ function confirmNow(p) {
 // Note that Sheets' own notification rules cannot do this job. They do not fire
 // for your own edits, and this script runs as the owner, so every row it writes
 // is the owner's edit. Such a rule would look configured and do nothing.
+// The trigger calls this. It exists only to stamp a completed run, which is
+// what tells anyone later that the digest is alive — see digestHealth() (#46).
 function dailyDigest() {
+  runDigest();
+  markDigestRan();
+}
+
+function runDigest() {
   // Reconcile first, so the digest never reports something as waiting that
   // went live overnight.
   confirmUploads();
@@ -1287,6 +1297,60 @@ function installDigestTrigger() {
   return 'Installed: daily digest about 08:00 in ' + Session.getScriptTimeZone() +
          ', and a confirmation sweep every 6 hours. The digest stays silent ' +
          'when nothing is pending and nothing is overdue.';
+}
+
+// ------------------------------------------------------------ digest health
+
+// Silence means two things — "nothing to do" and "I am broken" — and from the
+// outside they look identical. That is how a digest throwing on a missing
+// scope went unnoticed for three days: the one morning in between had an empty
+// queue, returned early above the throw, and looked perfectly healthy (#46).
+//
+// So a run that completes leaves a mark, and the mark going stale is the
+// signal. A run with nothing to report still marks: that is a healthy run.
+var DIGEST_RAN_KEY = 'digestLastCompletedAt';
+
+// Stamped after the body returns, never inside it, so it records a run that
+// finished rather than one that started.
+//
+// It must never be the reason the digest fails. A health mark that can break
+// the thing it marks is worse than no health mark, so this swallows and logs.
+function markDigestRan() {
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty(DIGEST_RAN_KEY, new Date().toISOString());
+  } catch (err) {
+    console.error('could not record the digest run: ' + err);
+  }
+}
+
+// When the digest last completed, which triggers are installed, and how old
+// that is. Null for anything unreadable — unknown must not read as healthy.
+function digestHealth() {
+  var out = { digestLastCompletedAt: null, digestStaleDays: null, triggers: null };
+
+  try {
+    out.digestLastCompletedAt =
+      PropertiesService.getScriptProperties().getProperty(DIGEST_RAN_KEY) || null;
+  } catch (err) {
+    console.error('could not read the digest mark: ' + err);
+  }
+
+  var t = Date.parse(out.digestLastCompletedAt || '');
+  if (!isNaN(t)) { out.digestStaleDays = calendarDaysAgo(t); }
+
+  // The trigger list answers a different question from the mark: the mark says
+  // it ran, this says anything is scheduled to. A deleted trigger leaves a mark
+  // that simply stops moving, which reads the same as one that is failing.
+  try {
+    out.triggers = ScriptApp.getProjectTriggers().map(function (tr) {
+      return tr.getHandlerFunction();
+    }).sort();
+  } catch (err) {
+    console.error('could not list triggers: ' + err);
+  }
+
+  return out;
 }
 
 // --------------------------------------------------------------- replies

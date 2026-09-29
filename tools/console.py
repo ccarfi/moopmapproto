@@ -596,6 +596,46 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return self._send(404, {'error': 'not found'})
 
 
+def digest_warnings(res):
+    """What the digest's heartbeat says, in words rather than raw fields.
+
+    The digest is silent when the queue is clear, on purpose — mail that means
+    "you have work" must not become noise. The cost is that silence also means
+    "I am broken", and from the outside the two are identical. A missing scope
+    made it throw for three days and the only morning in between had an empty
+    queue, so it returned early, above the throw, and looked healthy (#46).
+
+    So: it marks each completed run, and the mark going stale is the signal.
+    """
+    triggers = res.get('triggers')
+    when = res.get('digestLastCompletedAt')
+    stale = res.get('digestStaleDays')
+    out = []
+
+    if triggers is None:
+        out.append('Could not read the trigger list. Open Triggers in the Apps Script\n'
+                   'editor and check by hand.')
+    else:
+        for fn, so_what in (
+                ('dailyDigest', 'nothing will mail you when\nreports are waiting'),
+                ('confirmUploads', 'nothing will move uploaded\nrows to live')):
+            if fn not in triggers:
+                out.append('No %s trigger is installed, so %s.\n'
+                           'Run installDigestTrigger() in the Apps Script editor.'
+                           % (fn, so_what))
+
+    if not when:
+        out.append('The digest has never recorded a completed run. If it was installed\n'
+                   'more than a day ago it is failing — open Executions in the Apps\n'
+                   'Script editor and read the dailyDigest error.')
+    elif stale is not None and stale >= 2:
+        out.append('The digest last completed %s, %d days ago. It runs daily, so it is\n'
+                   'failing or disabled — open Executions in the Apps Script editor and\n'
+                   'read the dailyDigest error.' % (when[:10], stale))
+
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('folder', nargs='?', default=None,
@@ -642,6 +682,8 @@ def main():
                   '         code. Deploy > Manage deployments > edit > New version,\n'
                   '         and bump CODE_VERSION while you are in there.'
                   % ((res.get('scriptUpdated') or '?')[:10], res.get('codeVersion')))
+        for warning in digest_warnings(res):
+            print('\nWARNING: ' + warning.replace('\n', '\n         '))
         return
 
     if args.list:
