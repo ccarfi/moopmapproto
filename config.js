@@ -25,6 +25,26 @@ const BAY_AREA_BOUNDS = { west: -123.70, south: 36.85, east: -121.15, north: 38.
  * few hundred metres from the nominal lines, which the rounding below covers. */
 const COLORADO_BOUNDS = { west: -109.0602, south: 36.9925, east: -102.0416, north: 41.0034 };
 const UNITED_KINGDOM_BOUNDS = { west: -8.7, south: 49.8, east: 1.8, north: 60.9 };
+/* The European Netherlands, rounded outward from its own extent
+ * (OSM/Nominatim "Europees Nederland", checked 2026-10-07) —
+ * S 50.7504, N 53.7488, W 3.0808, E 7.2275. The binding corners are the
+ * Zeeland coast in the west, Vaals at the southern tip, the Wadden islands in
+ * the north and the Twente border in the east.
+ *
+ * Europe only. Nominatim's "Nederland" also covers Bonaire, Saba and Sint
+ * Eustatius, which would stretch this box 74° west across the Atlantic and
+ * leave the out-of-area check meaning nothing — a pin dropped anywhere in the
+ * Caribbean, or most of the ocean between, would pass. A chapter named for
+ * Amsterdam does not need them.
+ *
+ * This rectangle leaks more than the others do, and knowingly: Brussels,
+ * Antwerp and Dusseldorf all sit inside it, because northern Belgium and the
+ * western Rhineland share the Netherlands' latitudes and longitudes. No
+ * axis-aligned box can exclude them. Per the rule above that is the right way
+ * round — a stray reaches human review, whereas an over-tight box silently
+ * rejects a volunteer standing in Maastricht. Worth knowing when a pin looks
+ * odd rather than wondering why the check passed. */
+const NETHERLANDS_BOUNDS = { west: 3.0, south: 50.70, east: 7.30, north: 53.80 };
 
 const CONFIG = {
   // Read-only Mapillary client token. Starts with "MLY|".
@@ -88,6 +108,25 @@ const CONFIG = {
       center: [54.0, -2.5],
       zoom: 6,
       bounds: UNITED_KINGDOM_BOUNDS
+    },
+    {
+      key: "bwb_amsterdam",
+      label: "BWB Amsterdam",
+      organizationId: "1467065178686426",   // slug: bwbamsterdam
+      // Brown, picked by simulating protanopia and deuteranopia against the
+      // three colours above rather than by eye. It is the only candidate that
+      // stays clearly apart from all of them under both — the obvious choices,
+      // purple and magenta, collapse towards this map's blue for a deuteranope
+      // — and at 9.3:1 against white it is also the most legible behind a
+      // cluster count, where the others sit at a marginal 3.2 to 4.1.
+      color: "#5D4037",
+      // The whole country, not just the city: the chapter is named for
+      // Amsterdam but the box is what decides whether a report is in area, and
+      // a volunteer cleaning in Rotterdam or Utrecht is plainly doing BWB
+      // Amsterdam's work.
+      center: [52.2, 5.3],
+      zoom: 7,
+      bounds: NETHERLANDS_BOUNDS
     }
   ],
 
