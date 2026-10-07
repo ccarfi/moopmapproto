@@ -628,10 +628,13 @@ def digest_warnings(res):
         out.append('The digest has never recorded a completed run. If it was installed\n'
                    'more than a day ago it is failing — open Executions in the Apps\n'
                    'Script editor and read the dailyDigest error.')
-    elif stale is not None and stale >= 2:
-        out.append('The digest last completed %s, %d days ago. It runs daily, so it is\n'
-                   'failing or disabled — open Executions in the Apps Script editor and\n'
-                   'read the dailyDigest error.' % (when[:10], stale))
+    elif res.get('digestOverdue'):
+        # Computed on the script's own clock rather than from the day count
+        # here: "yesterday" is fine at 07:00 and a missed run at 11:00, and a
+        # flat two-day threshold stayed quiet through a morning it had skipped.
+        out.append('The digest last completed %s, %d day(s) ago, and today\'s run is\n'
+                   'overdue. Open Executions in the Apps Script editor and read the\n'
+                   'dailyDigest error.' % (when[:10], stale if stale is not None else 0))
 
     # Triggers run the saved project, doPost runs the deployment, so these two
     # disagreeing means the editor is ahead of what /exec serves. The Deploy

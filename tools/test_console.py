@@ -26,6 +26,7 @@ HEALTHY = {
     'triggers': ['dailyDigest', 'scheduledConfirm'],
     'digestLastCompletedAt': '2026-10-07T15:26:00.000Z',
     'digestStaleDays': 0,
+    'digestOverdue': False,
     'codeVersion': '2026-10-07.2',
     'headVersion': '2026-10-07.2',
 }
@@ -46,22 +47,33 @@ def case(label, overrides, want):
 CASES = [
     ('healthy, ran today',                      {}, 0),
     ('healthy, ran yesterday',                   {'digestStaleDays': 1}, 0),
-    ('two days stale',                           {'digestStaleDays': 2}, 1),
-    ('a week stale',                             {'digestStaleDays': 7}, 1),
+    ('two days stale',                           {'digestStaleDays': 2,
+                                                  'digestOverdue': True}, 1),
+    ('a week stale',                             {'digestStaleDays': 7,
+                                                  'digestOverdue': True}, 1),
+    # The case that slipped through: one day old, but the hour has passed, so
+    # the script itself says today's run is missing.
+    ('one day old and today\'s run missed',       {'digestStaleDays': 1,
+                                                  'digestOverdue': True}, 1),
+    ('one day old before the run is due',        {'digestStaleDays': 1,
+                                                  'digestOverdue': False}, 0),
     ('never stamped',                            {'digestLastCompletedAt': None,
-                                                  'digestStaleDays': None}, 1),
+                                                  'digestStaleDays': None,
+                                                  'digestOverdue': None}, 1),
     ('dailyDigest trigger deleted',              {'triggers': ['scheduledConfirm']}, 1),
     ('scheduledConfirm trigger deleted',         {'triggers': ['dailyDigest']}, 1),
     ('both triggers gone, never stamped',        {'triggers': [],
                                                   'digestLastCompletedAt': None,
-                                                  'digestStaleDays': None}, 3),
+                                                  'digestStaleDays': None,
+                                                  'digestOverdue': None}, 3),
     ('trigger list unreadable',                  {'triggers': None}, 1),
 
     # The drift check: triggers run the saved project, doPost runs the
     # deployment, so these differing means a redeploy did not take.
     ('deploy drift — editor ahead of /exec',     {'headVersion': '2026-10-07.3'}, 1),
     ('deploy drift plus a stale digest',         {'headVersion': '2026-10-07.3',
-                                                  'digestStaleDays': 4}, 2),
+                                                  'digestStaleDays': 4,
+                                                  'digestOverdue': True}, 2),
     ('no drift when they agree',                 {}, 0),
     ('head version not recorded yet, no drift',  {'headVersion': None}, 0),
     ('deployed version missing, no drift',       {'codeVersion': None}, 0),

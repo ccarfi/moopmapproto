@@ -74,7 +74,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-10-07.2';
+var CODE_VERSION = '2026-10-07.3';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
@@ -1016,9 +1016,12 @@ function confirmNow(p) {
 // The trigger calls this. It exists only to stamp a completed run, which is
 // what tells anyone later that the digest is alive — see digestHealth() (#46).
 function dailyDigest() {
+  // Same order, same reason: the version mark is unconditional, the
+  // completion mark is earned. runDigest() calls confirmUploads() as its first
+  // statement, so a failure in the sweep used to take both marks down with it.
+  markHeadVersion();
   runDigest();
   markDigestRan();
-  markHeadVersion();
 }
 
 function runDigest() {
@@ -1271,7 +1274,7 @@ function installDigestTrigger() {
     if (fn === 'dailyDigest' || fn === 'confirmUploads' ||
         fn === 'scheduledConfirm') { ScriptApp.deleteTrigger(t); }
   });
-  ScriptApp.newTrigger('dailyDigest').timeBased().atHour(8).everyDays(1).create();
+  ScriptApp.newTrigger('dailyDigest').timeBased().atHour(DIGEST_HOUR).everyDays(1).create();
   // More often than the digest: processing finishes at no particular hour, and
   // a row confirmed at noon should not read as waiting until tomorrow morning.
   ScriptApp.newTrigger('scheduledConfirm').timeBased().everyHours(6).create();
@@ -1290,6 +1293,7 @@ function installDigestTrigger() {
 // So a run that completes leaves a mark, and the mark going stale is the
 // signal. A run with nothing to report still marks: that is a healthy run.
 var DIGEST_RAN_KEY = 'digestLastCompletedAt';
+var DIGEST_HOUR = 8;            // when the daily digest is scheduled, local
 var HEAD_VERSION_KEY = 'headCodeVersion';
 var HEAD_VERSION_AT_KEY = 'headCodeVersionAt';
 
@@ -1327,8 +1331,12 @@ function markHeadVersion() {
 // under the name of the saved one, and the comparison would always agree with
 // itself.
 function scheduledConfirm() {
-  confirmUploads();
+  // Before the sweep, not after. Which code is running is true whether or not
+  // the sweep succeeds, and stamping afterwards meant one throw inside
+  // confirmUploads lost the version mark as well — so the diagnostic went
+  // blank exactly when something had gone wrong, which is when it was needed.
   markHeadVersion();
+  confirmUploads();
 }
 
 // Stamped after the body returns, never inside it, so it records a run that
@@ -1345,12 +1353,26 @@ function markDigestRan() {
   }
 }
 
+// Has the digest missed a run?
+//
+// Age alone could not answer this. Yesterday is the right answer at 07:00 and
+// the wrong one at 11:00, so a flat "two days or more" threshold stayed quiet
+// through a morning the digest had plainly skipped. Two hours' grace, because
+// a time-based trigger fires somewhere inside its hour and can run late.
+function digestOverdue(staleDays) {
+  if (staleDays === null || staleDays === undefined) { return null; }
+  if (staleDays >= 2) { return true; }
+  if (staleDays <= 0) { return false; }
+  var hour = Number(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'H'));
+  return hour >= DIGEST_HOUR + 2;
+}
+
 // When the digest last completed, which triggers are installed, and how old
 // that is. Null for anything unreadable — unknown must not read as healthy.
 function digestHealth() {
   var out = {
-    digestLastCompletedAt: null, digestStaleDays: null, triggers: null,
-    headVersion: null, headVersionAt: null
+    digestLastCompletedAt: null, digestStaleDays: null, digestOverdue: null,
+    triggers: null, headVersion: null, headVersionAt: null
   };
 
   try {
@@ -1361,7 +1383,10 @@ function digestHealth() {
   }
 
   var t = Date.parse(out.digestLastCompletedAt || '');
-  if (!isNaN(t)) { out.digestStaleDays = calendarDaysAgo(t); }
+  if (!isNaN(t)) {
+    out.digestStaleDays = calendarDaysAgo(t);
+    out.digestOverdue = digestOverdue(out.digestStaleDays);
+  }
 
   try {
     var props = PropertiesService.getScriptProperties();

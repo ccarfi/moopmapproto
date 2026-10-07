@@ -121,7 +121,7 @@ is('junk', stampsOf('no stamp here'), []);
 group('digestHealth (silence must not read as health)');
 store = {};
 is('nothing recorded yet', digestHealth(),
-   { digestLastCompletedAt: null, digestStaleDays: null,
+   { digestLastCompletedAt: null, digestStaleDays: null, digestOverdue: null,
      triggers: ['dailyDigest', 'scheduledConfirm'],
      headVersion: null, headVersionAt: null });
 
@@ -161,10 +161,29 @@ let confirmRan = false;
 const realConfirm = confirmUploads;
 confirmUploads = () => { confirmRan = true; };
 scheduledConfirm();
-confirmUploads = realConfirm;
 is('the trigger wrapper runs the sweep', confirmRan, true);
 is('...and stamps the version, so a stale deployment shows up',
    store.headCodeVersion, CODE_VERSION);
+
+// The ordering bug this had on 2026-10-07: the stamp came after the sweep, so
+// one throw in confirmUploads blanked the diagnostic exactly when it mattered.
+store = {};
+confirmUploads = () => { throw new Error('Sheet unavailable'); };
+let bubbled = false;
+try { scheduledConfirm(); } catch (e) { bubbled = true; }
+confirmUploads = realConfirm;
+is('a failing sweep still leaves the version stamped', store.headCodeVersion, CODE_VERSION);
+is('...and the failure is not swallowed', bubbled, true);
+
+group('digestOverdue (yesterday is fine at 07:00, missed at 11:00)');
+const realFormat = Utilities.formatDate;
+const atHour = h => { Utilities.formatDate = (d, tz, f) => (f === 'H' ? String(h) : d.toISOString().slice(0, 10)); };
+atHour(7);  is('one day old, before the run is due', digestOverdue(1), false);
+atHour(11); is('one day old, after the run is due', digestOverdue(1), true);
+atHour(7);  is('two days old is overdue at any hour', digestOverdue(2), true);
+atHour(23); is('stamped today is never overdue', digestOverdue(0), false);
+is('unknown stays unknown', digestOverdue(null), null);
+Utilities.formatDate = realFormat;
 
 refuse.props = true;
 threw = false;
