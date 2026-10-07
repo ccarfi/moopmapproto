@@ -74,7 +74,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-09-29.2';
+var CODE_VERSION = '2026-10-07.1';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
@@ -98,7 +98,8 @@ var CODE_VERSION = '2026-09-29.2';
 var CHAPTERS = {
   bwb_south_bay:      '1605841191131530',
   bwb_colorado:       '1581190229640795',
-  bwb_united_kingdom: '2898722160461721'
+  bwb_united_kingdom: '2898722160461721',
+  bwb_amsterdam:      '1467065178686426'   // slug: bwbamsterdam
 };
 
 // Read-only Mapillary client token — the same one in config.js, duplicated
