@@ -29,6 +29,7 @@ what GitHub Pages serves.
 | `tools/mly_upload.py` | Wrapper around `mapillary_tools`, which crashes mid-upload without it. |
 | `version.js` | The build badge — tells a phone whether it is running the latest. |
 | `styles.css` | All styling. |
+| `tools/test.sh` | Every test. No network, no credentials — run it before pasting `Code.gs` anywhere. |
 
 ## Setup
 

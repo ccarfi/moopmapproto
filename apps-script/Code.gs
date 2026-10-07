@@ -74,7 +74,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-10-07.1';
+var CODE_VERSION = '2026-10-07.2';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
@@ -242,31 +242,6 @@ function doGet() {
     chapters: Object.keys(CHAPTERS),
     adminConfigured: adminDenied({ adminToken: ADMIN_TOKEN }) === null
   });
-}
-
-// When this project was last saved. An Apps Script project is a Drive file, so
-// its edit time is readable from inside the script; its deployment date is not.
-function scriptUpdated() {
-  try {
-    return DriveApp.getFileById(ScriptApp.getScriptId()).getLastUpdated().toISOString();
-  } catch (err) {
-    // Not worth failing a status check over. But say so — a bare null here
-    // reads as "never edited", which is the opposite of "could not tell".
-    console.error('scriptUpdated failed: ' + err);
-    return null;
-  }
-}
-
-// True when the editor holds changes the /exec URL is not serving.
-//
-// Day granularity, because CODE_VERSION carries a date and not a time: two
-// edits on one day where only the first was deployed will not show up. It
-// catches the case that actually bites — an edit left sitting overnight.
-function editedSinceStamp() {
-  var when = scriptUpdated();
-  var stamped = String(CODE_VERSION).slice(0, 10);
-  if (!when || !/^\d{4}-\d{2}-\d{2}$/.test(stamped)) { return null; }
-  return when.slice(0, 10) > stamped;
 }
 
 // ----------------------------------------------------------------- drive
@@ -983,9 +958,10 @@ function confirmNow(p) {
     confirmed: res.confirmed,
     stillWaiting: res.waiting,
     checkError: lastCheckError,
-    codeVersion: CODE_VERSION,
-    scriptUpdated: scriptUpdated(),
-    editedSinceStamp: editedSinceStamp()
+    // The DEPLOYED version: this arrives through doPost, which runs the
+    // deployment rather than the saved project. digestHealth() adds the saved
+    // project's, recorded by a trigger, and the two differing is the signal.
+    codeVersion: CODE_VERSION
   };
 
   var health = digestHealth();
@@ -1042,6 +1018,7 @@ function confirmNow(p) {
 function dailyDigest() {
   runDigest();
   markDigestRan();
+  markHeadVersion();
 }
 
 function runDigest() {
@@ -1289,12 +1266,15 @@ function recipient() {
 function installDigestTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     var fn = t.getHandlerFunction();
-    if (fn === 'dailyDigest' || fn === 'confirmUploads') { ScriptApp.deleteTrigger(t); }
+    // confirmUploads is in this list for projects installed before the
+    // scheduledConfirm wrapper existed, so re-running this cleans them up.
+    if (fn === 'dailyDigest' || fn === 'confirmUploads' ||
+        fn === 'scheduledConfirm') { ScriptApp.deleteTrigger(t); }
   });
   ScriptApp.newTrigger('dailyDigest').timeBased().atHour(8).everyDays(1).create();
   // More often than the digest: processing finishes at no particular hour, and
   // a row confirmed at noon should not read as waiting until tomorrow morning.
-  ScriptApp.newTrigger('confirmUploads').timeBased().everyHours(6).create();
+  ScriptApp.newTrigger('scheduledConfirm').timeBased().everyHours(6).create();
   return 'Installed: daily digest about 08:00 in ' + Session.getScriptTimeZone() +
          ', and a confirmation sweep every 6 hours. The digest stays silent ' +
          'when nothing is pending and nothing is overdue.';
@@ -1310,6 +1290,46 @@ function installDigestTrigger() {
 // So a run that completes leaves a mark, and the mark going stale is the
 // signal. A run with nothing to report still marks: that is a healthy run.
 var DIGEST_RAN_KEY = 'digestLastCompletedAt';
+var HEAD_VERSION_KEY = 'headCodeVersion';
+var HEAD_VERSION_AT_KEY = 'headCodeVersionAt';
+
+// Which CODE_VERSION the saved project is carrying.
+//
+// This replaces a check that asked Drive when the project file was last
+// edited. That call threw every time it ran and returned null, which read as
+// "not edited" rather than "could not tell", so the drift it was meant to
+// catch went unreported for a week — including twice in one afternoon when a
+// redeploy silently did not take.
+//
+// Triggers run the saved project; doPost and doGet run the deployment. So a
+// trigger recording CODE_VERSION here, compared against the CODE_VERSION that
+// answers /exec, says exactly whether the editor is ahead of what is being
+// served. No Drive access, nothing to be refused.
+//
+// It only moves when a trigger fires, so it can lag a save by up to six hours,
+// and it cannot see an edit made without bumping CODE_VERSION. Both are worth
+// knowing; neither was true of the null it replaces.
+function markHeadVersion() {
+  try {
+    PropertiesService.getScriptProperties().setProperties({
+      headCodeVersion: CODE_VERSION,
+      headCodeVersionAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('could not record the head version: ' + err);
+  }
+}
+
+// What the confirmation trigger calls, rather than confirmUploads directly.
+//
+// confirm-now reaches confirmUploads through doPost, which runs the deployed
+// code — stamping from inside confirmUploads would record the deployed version
+// under the name of the saved one, and the comparison would always agree with
+// itself.
+function scheduledConfirm() {
+  confirmUploads();
+  markHeadVersion();
+}
 
 // Stamped after the body returns, never inside it, so it records a run that
 // finished rather than one that started.
@@ -1328,7 +1348,10 @@ function markDigestRan() {
 // When the digest last completed, which triggers are installed, and how old
 // that is. Null for anything unreadable — unknown must not read as healthy.
 function digestHealth() {
-  var out = { digestLastCompletedAt: null, digestStaleDays: null, triggers: null };
+  var out = {
+    digestLastCompletedAt: null, digestStaleDays: null, triggers: null,
+    headVersion: null, headVersionAt: null
+  };
 
   try {
     out.digestLastCompletedAt =
@@ -1339,6 +1362,14 @@ function digestHealth() {
 
   var t = Date.parse(out.digestLastCompletedAt || '');
   if (!isNaN(t)) { out.digestStaleDays = calendarDaysAgo(t); }
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    out.headVersion = props.getProperty(HEAD_VERSION_KEY) || null;
+    out.headVersionAt = props.getProperty(HEAD_VERSION_AT_KEY) || null;
+  } catch (err) {
+    console.error('could not read the head version: ' + err);
+  }
 
   // The trigger list answers a different question from the mark: the mark says
   // it ran, this says anything is scheduled to. A deleted trigger leaves a mark

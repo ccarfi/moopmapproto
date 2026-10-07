@@ -618,7 +618,7 @@ def digest_warnings(res):
     else:
         for fn, so_what in (
                 ('dailyDigest', 'nothing will mail you when\nreports are waiting'),
-                ('confirmUploads', 'nothing will move uploaded\nrows to live')):
+                ('scheduledConfirm', 'nothing will move uploaded\nrows to live')):
             if fn not in triggers:
                 out.append('No %s trigger is installed, so %s.\n'
                            'Run installDigestTrigger() in the Apps Script editor.'
@@ -632,6 +632,20 @@ def digest_warnings(res):
         out.append('The digest last completed %s, %d days ago. It runs daily, so it is\n'
                    'failing or disabled — open Executions in the Apps Script editor and\n'
                    'read the dailyDigest error.' % (when[:10], stale))
+
+    # Triggers run the saved project, doPost runs the deployment, so these two
+    # disagreeing means the editor is ahead of what /exec serves. The Deploy
+    # dialog defaults to the currently-deployed version, so "redeployed" and
+    # "deployed the same thing again" look identical from the outside — which
+    # has now happened twice in one afternoon.
+    deployed, head = res.get('codeVersion'), res.get('headVersion')
+    if deployed and head and deployed != head:
+        out.append('The saved project is on %s but /exec is serving\n'
+                   '%s. A redeploy did not take: Deploy > Manage\n'
+                   'deployments > pencil > Version: NEW VERSION. That dropdown\n'
+                   'defaults to the version already deployed, so it is easy to\n'
+                   'redeploy the same code and see nothing change.'
+                   % (head, deployed))
 
     return out
 
@@ -676,12 +690,6 @@ def main():
         # A boolean in the middle of that dump is easy to skim past, and this
         # one means the /exec URL is not serving what is in the editor — which
         # makes every other number above describe code you are not running.
-        if res.get('editedSinceStamp'):
-            print('\nWARNING: the script was last saved %s, after CODE_VERSION was\n'
-                  '         stamped %s. The /exec URL still serves the older\n'
-                  '         code. Deploy > Manage deployments > edit > New version,\n'
-                  '         and bump CODE_VERSION while you are in there.'
-                  % ((res.get('scriptUpdated') or '?')[:10], res.get('codeVersion')))
         for warning in digest_warnings(res):
             print('\nWARNING: ' + warning.replace('\n', '\n         '))
         return

@@ -358,6 +358,13 @@ rather than "not on the map after 3 days".
 > for rows written before #45, where a retry stored the same photo more than
 > once and only the first filename used to be checked.
 >
+> It also warns when the saved project and the deployed one are on different
+> versions of `CODE_VERSION` — the triggers run the saved project and `/exec`
+> runs the deployment, so the two disagreeing means a redeploy did not take.
+> The Deploy dialog's Version dropdown defaults to the version already
+> deployed, so "redeployed" and "deployed the same thing again" look identical
+> from the outside. That happened twice in one afternoon on 2026-10-07.
+>
 > It also reports the digest's health — when it last completed, and which
 > triggers are installed — and says so loudly if the digest has gone quiet.
 > That matters because the digest is silent by design when the queue is clear,
@@ -394,6 +401,22 @@ Fixed server-side in #45 — `doPost` now answers a retry with the file it
 already has — so this should only ever fire for a batch collected before that
 deployed. The check stays because the cost of being wrong is published
 imagery, and taking that down is a great deal more work than deleting a file.
+
+## Before changing Code.gs
+
+```bash
+sh tools/test.sh
+```
+
+Nothing in it touches the network, a credential or a Google runtime, so there
+is never a reason to skip it. It loads `apps-script/Code.gs` itself rather than
+a copy — a copy would keep passing while the file it came from rotted — and
+stubs the half-dozen runtime objects the logic actually needs.
+
+It covers the things that have gone wrong in the field rather than the things
+that are easy to test: that a retry finds the photo already stored (#45), that
+a row listing several files confirms on any of them (#45), that the digest's
+heartbeat cannot itself throw (#46), and that an undeployed edit is noticed.
 
 ## Removing a submission
 
