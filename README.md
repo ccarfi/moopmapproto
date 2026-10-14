@@ -274,7 +274,7 @@ selected chapter's box, the form warns but still lets it through — a bad bound
 guess shouldn't be able to block a legitimate report. The **hard** gate is in
 `RUNBOOK.md`, before upload, where a mistake is still cheap to fix.
 
-`BAY_AREA_BOUNDS` in `config.js` is one object referenced by both `CONFIG.bbox`
+`SOUTH_BAY_BOUNDS` in `config.js` is one object referenced by both `CONFIG.bbox`
 and the chapter's `bounds`, so the map's area of interest and the form's check
 cannot drift apart.
 

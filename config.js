@@ -8,22 +8,50 @@
  * area of interest and the report form's out-of-area check can never drift
  * apart. Keep them generous — an over-tight box that rejects a legitimate
  * report is worse than one that lets a stray through to human review. */
-/* The nine Bay Area counties: Alameda, Contra Costa, Marin, Napa, San
- * Francisco, San Mateo, Santa Clara, Solano, Sonoma.
+/* South Bay, the Peninsula and the inner East Bay — clipped at Berkeley.
  *
- * Derived from the union of those counties' own extents (OSM/Nominatim,
- * checked 2026-09-24) — W -123.633, S 36.893, E -121.208, N 38.864 — then
- * rounded outward for margin. The binding corners are Sonoma's coast in the
- * west, Napa's northern tip, Santa Clara's south end below Gilroy and its
- * eastern edge past Mt Hamilton. San Francisco's Farallon Islands sit well
- * inside the western edge. */
-const BAY_AREA_BOUNDS = { west: -123.70, south: 36.85, east: -121.15, north: 38.92 };
+ * This was the nine Bay Area counties until 2026-10-14, derived from the union
+ * of their extents (OSM/Nominatim, 2026-09-24): W -123.633, S 36.893,
+ * E -121.208, N 38.864, rounded outward. That rectangle reached far past
+ * anywhere this chapter works, and the reason is worth keeping: its north came
+ * from Napa's tip in the far north-west and its east from Santa Clara past Mt
+ * Hamilton in the south-east, so its NORTH-EAST corner was simply where those
+ * two lines crossed — in Placer County, about 150 km from any Bay Area county.
+ * It swallowed Sacramento, Roseville and Folsom, which meant a volunteer there
+ * who picked this chapter by mistake passed the out-of-area check.
+ *
+ * The north edge is now Berkeley's northern city limit (37.9067, OSM, checked
+ * 2026-10-14) rounded outward. Marin above Mill Valley, Sonoma, Napa, Solano
+ * and most of Contra Costa — Richmond, Concord, Martinez, Antioch — are
+ * outside it now, deliberately. No report ever filed is affected: the
+ * northernmost of 33 is Mountain View at 37.386, 58 km clear of the line.
+ *
+ * Walnut Creek lands 11 m outside, which is an accident of where its centroid
+ * falls rather than a decision. Recorded so it reads as known.
+ *
+ * West, south and east are unchanged and still carry the old county union, so
+ * the Farallon Islands and Gilroy stay comfortably inside. */
+const SOUTH_BAY_BOUNDS = { west: -123.70, south: 36.85, east: -121.15, north: 37.91 };
 /* Colorado is one of only two states that are true rectangles: 37°N to 41°N,
  * and 102°03′W to 109°03′W (25° to 32° west of the Washington meridian). So
  * unlike the Bay Area box this is the state, not a generous approximation of
  * it — nothing of a neighbouring state falls inside. Surveyed corners wander a
  * few hundred metres from the nominal lines, which the rounding below covers. */
 const COLORADO_BOUNDS = { west: -109.0602, south: 36.9925, east: -102.0416, north: 41.0034 };
+/* The Sacramento Valley and the Sierra foothills, read off the extent given in
+ * #49 — a map view rather than a drawn rectangle, so the corners were solved
+ * for by fitting the projection to two labelled cities and then checked
+ * against five more. Maxwell, Lodi, Fairfield, Woodland and Placerville all
+ * landed within 9 px, and the latitude/longitude pixel ratio matched what
+ * Mercator predicts at 38.6N, so the fit is the picture's and not a guess.
+ *
+ * Measured W -122.286, E -120.580, S 38.123, N 39.334, rounded outward.
+ * Colusa and Yuba City in the north, Lodi in the south, Napa's eastern edge in
+ * the west, Placerville and Georgetown in the foothills.
+ *
+ * Its southern edge is 38.05 and South Bay's northern edge is 37.91, so the
+ * two no longer overlap. They did until 2026-10-14 — see SOUTH_BAY_BOUNDS. */
+const SACRAMENTO_BOUNDS = { west: -122.35, south: 38.05, east: -120.50, north: 39.40 };
 const UNITED_KINGDOM_BOUNDS = { west: -8.7, south: 49.8, east: 1.8, north: 60.9 };
 /* The European Netherlands, rounded outward from its own extent
  * (OSM/Nominatim "Europees Nederland", checked 2026-10-07) —
@@ -54,7 +82,7 @@ const CONFIG = {
   // Applied client-side, not as a query parameter — Mapillary rejects a bbox
   // this large (see README). Set to null to map every image an account has,
   // wherever it is.
-  bbox: BAY_AREA_BOUNDS,
+  bbox: SOUTH_BAY_BOUNDS,
 
   // One entry per chapter: its own colour, legend row and Mapillary
   // organization. `key` is also the `bwb_chapter` value recorded with every
@@ -83,7 +111,7 @@ const CONFIG = {
       // starting everyone one zoom level out.
       center: [37.8, -122.2],
       zoom: 9,
-      bounds: BAY_AREA_BOUNDS
+      bounds: SOUTH_BAY_BOUNDS
     },
     {
       key: "bwb_colorado",
@@ -127,6 +155,20 @@ const CONFIG = {
       center: [52.2, 5.3],
       zoom: 7,
       bounds: NETHERLANDS_BOUNDS
+    },
+    {
+      key: "bwb_sacramento",
+      label: "BWB Sacramento",
+      organizationId: "2304511726980904",   // slug: bwbsacramento
+      // Deep violet, picked the same way as the others: simulate protanopia
+      // and deuteranopia against every colour already in use and take the
+      // candidate that stays furthest from all of them. A fifth is harder than
+      // a fourth, but this one is not close — 42.1 worst case against 27.2 for
+      // the brown above, and 9.2:1 against white for the cluster counts.
+      color: "#512DA8",
+      center: [38.7, -121.4],
+      zoom: 8,
+      bounds: SACRAMENTO_BOUNDS
     }
   ],
 
