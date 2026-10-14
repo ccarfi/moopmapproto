@@ -38,6 +38,10 @@
       <label class="field-label" for="chapter">Chapter</label>
       <select id="chapter" class="field-input"></select>
       <p class="field-hint">Which chapter this is for.</p>
+      <!-- Only when ?chapter= named something we do not have. The person who
+           wrote that link is not the person reading this page, so it has to be
+           visible here or a mistyped QR code never gets found. -->
+      <div id="chapter-unknown" class="notice is-warn" hidden></div>
     </section>
 
     <!-- Location before Photo (#42). It is the step that takes time and the one

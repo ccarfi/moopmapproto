@@ -158,6 +158,31 @@ Follow `RUNBOOK.md`, using **that chapter's** organization key.
 
 ---
 
+## Give the chapter its own link
+
+```
+https://moopmap.org/report.html?chapter=bwb_scotland
+```
+
+That preselects the chapter, so a volunteer following it never touches the
+dropdown. Give this to the chapter rather than the bare URL — on their sign,
+their QR code, their group chat.
+
+It matters most where two chapters' areas overlap, because there the position
+cannot tell them apart. Keep Coyote Creek Beautiful sits inside BWB South Bay,
+and that is not a mistake to fix: Coyote Creek runs through San Jose and both
+groups work the same ground, so a photo taken on it is legitimately either
+one's. The dropdown is the only thing that decides, and a link is how you stop
+it being a decision at all.
+
+**Check the link before it goes on anything printed.** A key that matches no
+chapter makes the form say so and fall back to the picker — but the person who
+wrote the link is not the person reading the page, so get the typo now rather
+than after a hundred photos have been filed under the wrong chapter.
+
+Following the link also saves the choice, so a return visit without it still
+lands in the right place.
+
 ## Before you announce it
 
 **The form accepts reports the moment step 3 deploys.** Photos go into *your*

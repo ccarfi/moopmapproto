@@ -274,6 +274,12 @@ selected chapter's box, the form warns but still lets it through — a bad bound
 guess shouldn't be able to block a legitimate report. The **hard** gate is in
 `RUNBOOK.md`, before upload, where a mistake is still cheap to fix.
 
+A chapter can be preselected from the URL — `report.html?chapter=bwb_colorado`
+— so a group can hand its volunteers a link rather than an instruction about
+which dropdown entry is theirs. An unrecognised key says so on the page instead
+of silently falling back, because a mistyped QR code would otherwise misfile
+every photo taken from it. Following the link also saves the choice.
+
 `SOUTH_BAY_BOUNDS` in `config.js` is one object referenced by both `CONFIG.bbox`
 and the chapter's `bounds`, so the map's area of interest and the form's check
 cannot drift apart.

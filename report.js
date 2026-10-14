@@ -28,6 +28,23 @@
 
   function chapters() { return (CONFIG.accounts || []); }
 
+  // A chapter can be preselected: report.html?chapter=bwb_kccb
+  //
+  // Groups recruit through their own channels — a sign, a QR code, their own
+  // group chat — and someone following that link should not have to know which
+  // entry in a dropdown is theirs. It is also the only lever that helps where
+  // two chapters' areas overlap, because there the position cannot tell them
+  // apart: Coyote Creek runs through San Jose, so a photo taken on it is
+  // legitimately either chapter's (#50).
+  function chapterFromUrl() {
+    var m = /[?&]chapter=([^&#]*)/.exec(location.search);
+    if (!m) { return null; }
+    var key;
+    // A hand-written link can contain anything, including a stray percent.
+    try { key = decodeURIComponent(m[1]); } catch (e) { key = m[1]; }
+    return key.trim().toLowerCase() || null;
+  }
+
   function chapterByKey(key) {
     var list = chapters();
     for (var i = 0; i < list.length; i++) {
@@ -61,9 +78,31 @@
       sel.appendChild(opt);
     });
 
+    // Precedence: the link, then what they last used, then the first chapter.
+    var wanted = chapterFromUrl();
     var saved = null;
     try { saved = localStorage.getItem(CHAPTER_PREF); } catch (e) { /* private mode */ }
-    if (saved && chapterByKey(saved)) { sel.value = saved; }
+
+    if (wanted && chapterByKey(wanted)) {
+      sel.value = wanted;
+      // Following the link counts as choosing, so coming back later without it
+      // still lands in the right place.
+      try { localStorage.setItem(CHAPTER_PREF, wanted); } catch (e) { /* private mode */ }
+    } else if (saved && chapterByKey(saved)) {
+      sel.value = saved;
+    }
+
+    if (wanted && !chapterByKey(wanted)) {
+      // Loudly. A silent fallback would file every photo from a mistyped QR
+      // code under whichever chapter happens to be first in the list, for as
+      // long as the sign is up, and nobody would ever find out.
+      var bad = el("chapter-unknown");
+      if (bad) {
+        bad.textContent = 'This link asked for a chapter called \u201c' + wanted +
+          '\u201d, which isn\u2019t one we have. Pick the right one above.';
+        bad.hidden = false;
+      }
+    }
 
     sel.onchange = function () {
       try { localStorage.setItem(CHAPTER_PREF, sel.value); } catch (e) { /* private mode */ }
