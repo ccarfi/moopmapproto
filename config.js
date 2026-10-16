@@ -52,6 +52,28 @@ const COLORADO_BOUNDS = { west: -109.0602, south: 36.9925, east: -102.0416, nort
  * Its southern edge is 38.05 and South Bay's northern edge is 37.91, so the
  * two no longer overlap. They did until 2026-10-14 — see SOUTH_BAY_BOUNDS. */
 const SACRAMENTO_BOUNDS = { west: -122.35, south: 38.05, east: -120.50, north: 39.40 };
+/* The Coyote Creek watershed, PROVISIONAL.
+ *
+ * Fitted from a screenshot KCCB sent — their own map could not be shared
+ * outside their organization. The projection was solved from two labelled
+ * cities and checked against five more; Milpitas and Mt Hamilton landed within
+ * about 15 px, so the fit is sound even where reading the boundary off a
+ * picture is not. Measured W -121.93, E -121.38, S 37.01, N 37.48, rounded
+ * outward.
+ *
+ * REPLACE THIS when KCCB send their KML (#57). The watershed is a long
+ * diagonal strip with a large eastern lobe toward Mt Hamilton, so this
+ * rectangle is several times its area and includes downtown San Jose, which is
+ * not in the watershed at all — the boundary runs through east San Jose. That
+ * costs little today, because bounds only drive a soft warning and a
+ * pre-upload gate, but it is wrong and it is meant to be temporary. The
+ * arrival of that file is the trigger for #53, or this comment will still be
+ * here in a year.
+ *
+ * Entirely inside SOUTH_BAY_BOUNDS, which is correct and not fixable by any
+ * rectangle: Coyote Creek runs through San Jose and both groups work the same
+ * ground. The per-organization link (#50) is what keeps them apart. */
+const COYOTE_CREEK_BOUNDS = { west: -121.95, south: 36.98, east: -121.35, north: 37.50 };
 const UNITED_KINGDOM_BOUNDS = { west: -8.7, south: 49.8, east: 1.8, north: 60.9 };
 /* The European Netherlands, rounded outward from its own extent
  * (OSM/Nominatim "Europees Nederland", checked 2026-10-07) —
@@ -169,6 +191,25 @@ const CONFIG = {
       center: [38.7, -121.4],
       zoom: 8,
       bounds: SACRAMENTO_BOUNDS
+    },
+    {
+      key: "kccb",
+      label: "Keep Coyote Creek Beautiful",
+      organizationId: "2898761457173484",   // slug: kccbv1, display name "KCCB"
+      // Deep blue. The palette is at its limit — no sixth colour clears dE 20
+      // against all five above, and the tightest pair already on the map is
+      // 21.4 — so this was chosen by the distance that actually has to hold
+      // rather than by the average.
+      //
+      // KCCB sits inside BWB South Bay, so its dots are interleaved with
+      // orange ones and with nothing else; Sacramento is 150 km north. Against
+      // #E4572E this scores 82.5, which is the number that matters on the map.
+      // Its nearest rival is Sacramento's violet at 18.5, and those two only
+      // ever meet in the legend, where each swatch has a name beside it.
+      color: "#01579B",
+      center: [37.24, -121.65],
+      zoom: 9,
+      bounds: COYOTE_CREEK_BOUNDS
     }
   ],
 
