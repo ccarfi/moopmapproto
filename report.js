@@ -98,7 +98,7 @@
       // long as the sign is up, and nobody would ever find out.
       var bad = el("chapter-unknown");
       if (bad) {
-        bad.textContent = 'This link asked for a chapter called \u201c' + wanted +
+        bad.textContent = 'This link asked for an organization called \u201c' + wanted +
           '\u201d, which isn\u2019t one we have. Pick the right one above.';
         bad.hidden = false;
       }
@@ -662,7 +662,7 @@
 
     if (ok === false) {
       warn.textContent = "This location seems far away from " + c.label +
-        " — check the chapter at the top of the form.";
+        " — check the organization at the top of the form.";
       warn.hidden = false;
     } else {
       warn.hidden = true;

@@ -74,7 +74,7 @@ var SHARED_TOKEN = 'moopmap-v1';                    // must match CONFIG.upload.
 // Hand-set because a script cannot read its own deployment date. The front end
 // needs no equivalent: version.js works that out from the files GitHub Pages
 // serves, so there is nothing to bump on that side.
-var CODE_VERSION = '2026-10-14.1';
+var CODE_VERSION = '2026-10-16.1';
 
 // STATUS LIFECYCLE
 //   pending   submitted, not yet uploaded
@@ -186,7 +186,7 @@ function doPost(e) {
     if (p.token !== SHARED_TOKEN)            { return fail('Bad token'); }
     if (p.website)                           { return fail('Rejected'); }   // honeypot
     if (!p.submissionId)                     { return fail('Missing submissionId'); }
-    if (!CHAPTERS.hasOwnProperty(p.bwb_chapter)) { return fail('Unknown chapter'); }
+    if (!CHAPTERS.hasOwnProperty(p.bwb_chapter)) { return fail('Unknown organization'); }
     if (!p.dataBase64)                       { return fail('Missing photo data'); }
     if (p.index > MAX_PHOTOS)                { return fail('Too many photos'); }
     if (p.size && p.size > MAX_BYTES)        { return fail('Photo too large'); }
@@ -834,7 +834,7 @@ function listInbox(p) {
 // single Apps Script response should be asked to carry.
 function fetchFile(p) {
   if (!p.chapter || !p.date || !p.name) {
-    return fail('Missing chapter, date or name');
+    return fail('Missing organization, date or name');
   }
   var inbox = existingChild(DriveApp.getFolderById(ROOT_FOLDER_ID), 'inbox');
   var ch = inbox && existingChild(inbox, p.chapter);
@@ -875,11 +875,11 @@ function sheetRows(p) {
 // those files — which is how unuploadable submissions get filed without
 // dragging the whole batch out of the queue.
 function moveBatch(p) {
-  if (!p.chapter || !p.date)  { return fail('Missing chapter or date'); }
+  if (!p.chapter || !p.date)  { return fail('Missing organization or date'); }
   if (p.to !== 'uploaded' && p.to !== 'failed') {
     return fail("'to' must be uploaded or failed");
   }
-  if (!CHAPTERS.hasOwnProperty(p.chapter)) { return fail('Unknown chapter'); }
+  if (!CHAPTERS.hasOwnProperty(p.chapter)) { return fail('Unknown organization'); }
 
   var root = DriveApp.getFolderById(ROOT_FOLDER_ID);
   var inbox = existingChild(root, 'inbox');

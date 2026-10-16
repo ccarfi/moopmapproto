@@ -1052,7 +1052,7 @@
 
     if (total === 0) {
       showOverlay("No photos found",
-        "Every chapter query succeeded but returned nothing. Searched " +
+        "Every organization query succeeded but returned nothing. Searched " +
         CONFIG.accounts.map(function (a) {
           return a.label + " in " + bboxParam(boundsFor(a));
         }).join("; ") +

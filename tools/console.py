@@ -140,7 +140,7 @@ def classify(name, row, account, already_uploaded):
         # only express as --force over an entire batch.
         return dict(state='outside', selected=False, sid=sid,
                     lat=float(lat), lng=float(lng),
-                    reason='outside %s — check the chapter was picked '
+                    reason='outside %s — check the organization was picked '
                            'correctly before sending this one'
                            % account['label'])
 
@@ -297,7 +297,7 @@ def build_batch(folder, rows, chapter_override, only=None):
 
     chapter = chapter_override or build_desc.chapter_from_path(folder)
     if chapter not in by_key:
-        sys.exit('error: chapter %r is not in config.js (known: %s)'
+        sys.exit('error: organization %r is not in config.js (known: %s)'
                  % (chapter, ', '.join(by_key)))
     account = by_key[chapter]
 

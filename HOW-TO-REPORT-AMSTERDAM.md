@@ -13,7 +13,7 @@ Open **moopmap.org**. Every dot is one photo.
 
 - **Tap a dot** for the photo and its details. Tap the photo to fill the screen,
   then tap again to zoom right in.
-- **Chapters** — tap a chapter's name to jump to it. Untick it to hide its dots.
+- **Organizations** — tap an organization's name to jump to it. Untick it to hide its dots.
 - **Dates** — shows the last year. Narrow it to a week to see one cleanup.
 - **Basemap** — Streets, or Satellite for aerial imagery.
 
@@ -25,7 +25,7 @@ On a phone the panel starts closed. Tap the icon in the top right to open it.
 
 Tap **Tell us about MOOP**, then:
 
-1. Chapter → **BWB Amsterdam**
+1. Organization → **BWB Amsterdam**
 2. **Take photo** — take one now, or choose from your library
 3. **Allow location** when your phone asks — it starts looking as soon as the
    page opens, and can take up to 30 seconds outdoors
