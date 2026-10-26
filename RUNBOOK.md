@@ -402,6 +402,35 @@ already has — so this should only ever fire for a batch collected before that
 deployed. The check stays because the cost of being wrong is published
 imagery, and taking that down is a great deal more work than deleting a file.
 
+## If the report form stops answering
+
+```bash
+python3 tools/probe_endpoint.py
+```
+
+A scheduled GitHub Action runs this every six hours and opens an issue when it
+fails, so usually you will hear before anyone in the field does. Run it by hand
+whenever a volunteer says a submission failed.
+
+Two things it is worth knowing before they bite:
+
+**`Who has access` must be `Anyone`.** Nothing about the symptom points there —
+the failure reaches the volunteer as `Load failed` on a phone, which looks like
+their signal, their browser, their photo. It is none of those.
+
+**The OAuth consent screen must not be in "Testing".** An external app in
+Testing status is issued refresh tokens that expire after **seven days**. When
+the owner's grant lapses the Web App cannot run as anyone, every anonymous
+request gets a 403, and the form is dead until someone re-authorizes. This
+caused a four-day outage on 2026-10-21 and had silently been the arrangement
+since the project was built — deploys happened to land inside the window often
+enough to keep resetting it. The fix was publishing the app to production:
+Cloud Console → Google Auth Platform → Audience → **Publish app**.
+
+If it ever reverts, publishing again is not enough on its own. The existing
+token keeps its old expiry, so the grant has to be revoked at
+myaccount.google.com/permissions and re-granted to mint a fresh one.
+
 ## Before changing Code.gs
 
 ```bash

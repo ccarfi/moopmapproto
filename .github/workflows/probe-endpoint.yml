@@ -1,0 +1,91 @@
+# Is the report form's endpoint still answering?
+#
+# On 2026-10-21 the Apps Script Web App stopped serving: the OAuth consent
+# screen was in "Testing" status, whose refresh tokens expire after seven days,
+# so the owner's grant lapsed and every anonymous request got a 403. The form
+# was dead for four days and nothing noticed. The daily digest runs inside Apps
+# Script, where the front door always looks open; the heartbeat watches the
+# triggers; `console.py --check` only speaks when an operator runs it. An
+# outage was eventually found by a volunteer walking a creek and losing two
+# photographs. See #61.
+#
+# This is the one check that looks from outside, on a schedule, with nobody
+# asking. It needs no secrets — the endpoint is public by design.
+#
+# NOTE: GitHub disables scheduled workflows after 60 days with no repository
+# activity. If this repo ever goes quiet, re-enable it in the Actions tab,
+# because a disabled probe looks exactly like a passing one.
+
+name: Is the report form up?
+
+on:
+  schedule:
+    # Every six hours, at :17 — off the hour, where scheduled runs queue worst.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: probe-endpoint
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe the endpoint
+        id: probe
+        run: |
+          set +e
+          python3 tools/probe_endpoint.py 2>&1 | tee probe.log
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      # An issue rather than only a failed run. Email notifications can be
+      # filtered, and in this project they have been: Apps Script's own failure
+      # mail never arrived for the digest outage in September.
+      - name: Raise an issue if it is down
+        if: steps.probe.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: The report form is not answering
+        run: |
+          open=$(gh issue list --state open --search "\"$TITLE\" in:title" \
+                   --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            echo "already reported in #$open — staying quiet"
+            exit 0
+          fi
+          {
+            echo "The scheduled probe could not reach the report form."
+            echo "**Volunteers cannot submit photographs right now.**"
+            echo
+            echo '```'
+            cat probe.log
+            echo '```'
+            echo
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "This issue closes itself when the probe next succeeds."
+          } > body.md
+          gh issue create --title "$TITLE" --body-file body.md
+
+      - name: Close the issue if it is back
+        if: steps.probe.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: The report form is not answering
+        run: |
+          open=$(gh issue list --state open --search "\"$TITLE\" in:title" \
+                   --json number --jq '.[0].number // empty')
+          [ -z "$open" ] && exit 0
+          gh issue close "$open" --comment \
+            "The probe reached the endpoint again at $(date -u '+%Y-%m-%d %H:%M UTC'). Closing."
+
+      - name: Fail the run if it is down
+        if: steps.probe.outputs.code != '0'
+        run: exit 1

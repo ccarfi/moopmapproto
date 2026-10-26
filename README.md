@@ -30,6 +30,7 @@ what GitHub Pages serves.
 | `version.js` | The build badge — tells a phone whether it is running the latest. |
 | `styles.css` | All styling. |
 | `tools/test.sh` | Every test. No network, no credentials — run it before pasting `Code.gs` anywhere. |
+| `tools/probe_endpoint.py` | Is the report form answering? Run by a scheduled Action every six hours. |
 
 ## Setup
 
