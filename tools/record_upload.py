@@ -39,10 +39,23 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
+
+# The diagnosis for a refusing endpoint lives in one place. Two copies of
+# "here is why Apps Script is returning 403" is one copy that goes stale, and
+# the one that goes stale is always the one being read at 7am in a car park.
+#
+# Plain import rather than importlib: both files sit in tools/, which Python
+# puts on sys.path as the script's own directory.
+from probe_endpoint import explain
 
 HISTORY = os.path.expanduser(
     '~/Library/Application Support/mapillary_tools/upload_history')
+
+# Apps Script is slow to wake, and this runs once per batch. Long enough not to
+# give up on a cold start, short enough that a hang is not mistaken for work.
+TIMEOUT = 45
 
 # 2026-09-24T22-53-25Z__<submission id>__1.jpg
 FILENAME_RE = re.compile(r'__(?P<sid>[0-9a-fA-F-]{36})__\d+\.')
@@ -62,14 +75,65 @@ def endpoint(repo_root):
     return m.group(0)
 
 
+def fail(headline, *lines):
+    """Stop with a diagnosis instead of a traceback.
+
+    A traceback here is not a bug report, it is a dead end. The 403 that killed
+    the form for four days surfaced from this very call as forty lines of
+    urllib internals ending in HTTPError, which names the symptom and nothing
+    else — and the cause was a setting in a dialog that no part of the error
+    mentions (#61).
+    """
+    print('error: ' + headline, file=sys.stderr)
+    for line in lines:
+        print('       ' + line, file=sys.stderr)
+    sys.exit(1)
+
+
+def redact(text, payload):
+    """Take the admin token back out of anything on its way to the screen.
+
+    The failure message below echoes the first 120 characters of whatever
+    answered, which is the single most useful thing to see when a sign-in page
+    turns up where JSON should be. It is also an uncontrolled string: an error
+    page that reflects the request, or a proxy that quotes it back, would put
+    the token in a terminal that gets screenshotted into an issue.
+
+    ADMIN_TOKEN lives in the deployed script and in one environment variable.
+    Nothing here is allowed to be the third place.
+    """
+    secret = (payload or {}).get('adminToken')
+    # Replace before truncating: a token straddling the cut would otherwise
+    # survive as a fragment, and a fragment of a secret is still a leak.
+    return text.replace(secret, '***') if secret else text
+
+
 def post(url, payload):
     body = json.dumps(payload).encode('utf-8')
     # text/plain keeps this a "simple request" — the Apps Script cannot set
     # CORS headers, and this matches what report.js already sends.
     req = urllib.request.Request(url, data=body,
                                  headers={'Content-Type': 'text/plain'})
-    with urllib.request.urlopen(req) as r:
-        return json.loads(r.read().decode('utf-8'))
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            text = r.read().decode('utf-8')
+    except urllib.error.HTTPError as e:
+        fail('the endpoint answered %d' % e.code, *explain(e.code))
+    except Exception as e:                                  # noqa: BLE001
+        fail('could not reach the endpoint: %s' % e,
+             'Network failure, or Apps Script is not serving at all.',
+             'tools/probe_endpoint.py checks the same endpoint on its own.')
+
+    # A 200 is not an answer. A Google sign-in page is a 200, and reading one
+    # as a result is how a request that never reached the script gets recorded
+    # as having worked.
+    try:
+        return json.loads(text)
+    except ValueError:
+        fail('the endpoint answered, but not with JSON',
+             'Usually a Google sign-in or error page, which means the request',
+             'never reached the script. First 120 chars: '
+             + repr(redact(text, payload)[:120]))
 
 
 def cluster_for(desc_path):

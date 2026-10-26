@@ -12,3 +12,5 @@ echo
 python3 tools/test_console.py
 echo
 python3 tools/test_probe.py
+echo
+python3 tools/test_record_upload.py

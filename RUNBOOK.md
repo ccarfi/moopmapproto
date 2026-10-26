@@ -443,6 +443,13 @@ So a report of "it said it couldn't reach the server" means the probe failed on
 that phone. Run `probe_endpoint.py` to find out whether it was the endpoint or
 their signal; the probe can read the status the browser cannot.
 
+**The operator tools say it too.** Every call these make goes through
+`record_upload.post()`, which used to hand a 403 back as a urllib traceback —
+so `console.py --check`, `--list` and the recording path all now print the same
+diagnosis as above instead. A 200 that is not JSON gets its own message, since
+a Google sign-in page is a 200 and reading one as a result would record a
+request that never reached the script as having worked.
+
 ## Before changing Code.gs
 
 ```bash
