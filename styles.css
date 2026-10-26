@@ -1123,3 +1123,33 @@ select.field-input { -webkit-appearance: none; appearance: none; cursor: pointer
 .file-thumb[hidden],
 .file-pick-btn[hidden],
 .file-pick-name[hidden] { display: none; }
+
+/* ----------------------------------------------------------------- prose */
+
+/* Running text, which the rest of this site has almost none of — every other
+   page is controls. Only privacy.html uses it. */
+.prose {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg);
+  margin: 10px 0 0;
+}
+
+.field-label + .prose { margin-top: 8px; }
+
+ul.prose { padding-left: 20px; }
+ul.prose li { margin-bottom: 6px; }
+ul.prose li:last-child { margin-bottom: 0; }
+
+.prose a { color: inherit; }
+
+/* On the form, because that is where the photo and the location are handed
+   over — not tucked somewhere only a lawyer would look. */
+.privacy-link {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+.privacy-link a { color: var(--muted); }
+.privacy-link a:hover { color: var(--fg); }
