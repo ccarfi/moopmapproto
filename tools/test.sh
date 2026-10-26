@@ -7,6 +7,8 @@ set -e
 cd "$(dirname "$0")/.."
 node tools/test_code_gs.js
 echo
+node tools/test_api_probe.js
+echo
 python3 tools/test_console.py
 echo
 python3 tools/test_probe.py

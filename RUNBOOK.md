@@ -431,6 +431,18 @@ If it ever reverts, publishing again is not enough on its own. The existing
 token keeps its old expiry, so the grant has to be revoked at
 myaccount.google.com/permissions and re-granted to mint a fresh one.
 
+**Volunteers are now told on load, not at Send.** `api-probe.js` asks `doGet`
+when the report page opens, and an orange notice appears above the form before
+a photo or a GPS wait has been spent. It warns and does not disable — a browser
+cannot tell a dead endpoint from a phone with no signal, and a false alarm
+costs a report — so a volunteer may still send and may still succeed. The
+version badge at the foot of the page says `api unreachable` in the same
+situation, which is the operator-facing half of the same fact.
+
+So a report of "it said it couldn't reach the server" means the probe failed on
+that phone. Run `probe_endpoint.py` to find out whether it was the endpoint or
+their signal; the probe can read the status the browser cannot.
+
 ## Before changing Code.gs
 
 ```bash

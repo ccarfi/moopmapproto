@@ -41,7 +41,9 @@
  * USE
  *     Add <div id="version" class="version" hidden></div> to the page and load
  *     this file last. Add data-api to that element on a page that talks to the
- *     Apps Script, and the badge reports the backend version too.
+ *     Apps Script, and the badge reports the backend version too — that part
+ *     needs api-probe.js loaded as well, and says "api not checked" rather
+ *     than nothing if it is missing.
  */
 (function () {
   "use strict";
@@ -105,19 +107,26 @@
     });
   }
 
-  /* One extra Apps Script execution per page load. Report traffic is a handful
-     a day, nowhere near the daily quota. */
-  function apiVersion() {
+  /* The backend half comes from api-probe.js, which the form also reads, so
+     the page asks the endpoint once rather than once per interested party.
+
+     This used to do its own fetch and collapse every outcome to null, which is
+     how #61 happened: the badge was the only outward-facing thing on the page
+     during a multi-day outage, it saw the failure, and it rendered a missing
+     line. A missing line reads as fine. */
+  function apiState() {
     // Guarded, not assumed: this runs while building the Promise.all argument,
-    // so a bare reference to a CONFIG that never loaded would throw straight
+    // so a bare reference to a name that never loaded would throw straight
     // past the catch below and out of this file.
-    if (typeof CONFIG === "undefined") { return Promise.resolve(null); }
-    var url = CONFIG && CONFIG.upload && CONFIG.upload.endpoint;
-    if (!url || url.indexOf("PASTE") !== -1) { return Promise.resolve(null); }
-    return fetch(bust(url), { cache: "no-store" })
-      .then(function (r) { return r.json(); })
-      .then(function (b) { return (b && b.ok && b.version) ? b : null; })
-      .catch(function () { return null; });
+    if (typeof MOOPMAP_API === "undefined") {
+      // data-api is set, so this page claims to talk to the Apps Script, and
+      // the file that would find out is not here. Say that. The alternative is
+      // reporting silence, and silence is what this whole exercise was about.
+      return Promise.resolve({ state: "unwired" });
+    }
+    return MOOPMAP_API.probe().catch(function () {
+      return { state: "unwired" };
+    });
   }
 
   function when(httpDate) {
@@ -171,6 +180,10 @@
     btn.type = "button";
     btn.className = "version-btn";
 
+    // Stale wins over an unreachable backend. Nothing can be diagnosed from
+    // code that is not the code that was deployed, so the first move is always
+    // to get the right build; the next load will report the endpoint if it is
+    // still refusing.
     if (stale) {
       btn.textContent = "↻ Newer version available — tap to reload";
       btn.addEventListener("click", function () { refresh(btn, files); });
@@ -191,10 +204,23 @@
     var label = "Ver: web " + (newest ? short(newest) : "unknown");
     el.textContent = "";
 
-    // No backend answer — offline, or the endpoint is down. Nothing to expand
-    // into, and a button that reveals a copy of its own label is worse than no
-    // button, so this degrades to plain text rather than a dead control.
-    if (!api) {
+    var state = api ? api.state : "unconfigured";
+
+    // Anything other than a working backend has nothing to expand into, and a
+    // button that reveals a copy of its own label is worse than no button — so
+    // these degrade to plain text rather than a dead control.
+    //
+    // Not orange, and it does not move to the top of the page. On the one page
+    // this badge runs on, the form itself puts a loud notice about the same
+    // outage in front of the volunteer, aimed at them and in their words.
+    // Stacking a second orange box above it would say the same thing twice to
+    // someone who only needed it once. What #61 actually required is that this
+    // stop rendering a blank where a fact belongs, and words in grey are not a
+    // blank.
+    if (state !== "up") {
+      if (state === "down") { label += " · api unreachable"; }
+      if (state === "unwired") { label += " · api not checked"; }
+
       var span = document.createElement("span");
       span.className = "version-label";
       span.textContent = label;
@@ -223,7 +249,7 @@
   var assets = ownAssets();
   Promise.all([
     Promise.all(assets.map(checkOne)),
-    el.hasAttribute("data-api") ? apiVersion() : Promise.resolve(null)
+    el.hasAttribute("data-api") ? apiState() : Promise.resolve(null)
   ]).then(function (r) {
     render(r[0], r[1]);
   }).catch(function () {

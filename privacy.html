@@ -93,7 +93,11 @@
       <li><strong>OpenStreetMap</strong> and <strong>Esri</strong> — map tiles</li>
       <li><strong>Mapillary</strong> — the photographs and their locations</li>
       <li><strong>unpkg</strong> — the Leaflet mapping library</li>
-      <li><strong>Google Apps Script</strong> — only when you submit a report</li>
+      <!-- "only when you submit" was already not true: the report page has
+           checked the endpoint's version on load since the build badge
+           shipped, and now checks whether it is answering at all (#61). -->
+      <li><strong>Google Apps Script</strong> — when the report page opens, to
+      check the form is working, and again when you submit a report</li>
     </ul>
   </section>
 

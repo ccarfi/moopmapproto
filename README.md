@@ -28,6 +28,7 @@ what GitHub Pages serves.
 | `tools/build_desc.py` | Builds the upload description file from the Sheet, and gates the batch. |
 | `tools/mly_upload.py` | Wrapper around `mapillary_tools`, which crashes mid-upload without it. |
 | `version.js` | The build badge — tells a phone whether it is running the latest. |
+| `api-probe.js` | Asks the Apps Script whether it is answering, on load, once per page. |
 | `styles.css` | All styling. |
 | `tools/test.sh` | Every test. No network, no credentials — run it before pasting `Code.gs` anywhere. |
 | `tools/probe_endpoint.py` | Is the report form answering? Run by a scheduled Action every six hours. |
@@ -162,6 +163,41 @@ it will never send you to reload for nothing.
 The report page also shows `api`, the deployed `CODE_VERSION` from `Code.gs`.
 That half *is* a hand-set constant — a script cannot read its own deployment
 date — and it has to be bumped on every redeploy.
+
+## Is the endpoint answering?
+
+`api-probe.js` asks `doGet` once on page load, and two things read the answer:
+the form and the version badge. One question, two readers — so adding the
+warning cost no extra request.
+
+**The form warns before anything is spent.** Until #61 the order of events was:
+pick an organization, take a photo, wait up to thirty seconds for a GPS fix,
+press Send, fail, retry, fail. Every step after the first happened once the
+answer was already knowable. Two reports were lost that way on 2026-10-25.
+
+**It warns, and never disables.** A browser cannot tell a dead endpoint from a
+phone at the edge of signal — a cross-origin 403 has no CORS headers, so
+`fetch` rejects with no status and no body, which is the whole of what it
+knows. A false alarm that talks someone out of sending does the exact harm the
+warning exists to prevent, so Send stays live and the photo still gets its
+chance. For the same reason there is one retry before it says anything, the
+wording never claims to know whose fault it is, and it only blames the phone
+when `navigator.onLine` has already admitted it.
+
+The warning is also taken back: if the endpoint recovers while the page sits
+open, returning to the tab clears it. Known-bad reading as bad forever is the
+same mistake as #61 with the sign reversed.
+
+**The badge says `api unreachable`** instead of dropping the line. That silence
+*was* #61 — during a multi-day outage the badge was the only outward-facing
+thing on the page, it saw the failure, and it rendered a missing row. It stays
+grey rather than going orange, because on the one page it runs on the form has
+already put a loud notice about the same outage in front of the volunteer, in
+their words. Two orange boxes saying the same thing is one too many.
+
+A stale build outranks both: nothing can be diagnosed from code that isn't the
+code that was deployed, so the reload prompt wins and the next load reports the
+endpoint if it is still refusing.
 
 ## How the data is fetched
 

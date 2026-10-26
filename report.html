@@ -25,6 +25,12 @@
     sent. See <code>CONFIG.upload.endpoint</code> in <code>config.js</code>.</span>
   </div>
 
+  <!-- The endpoint did not answer when the page asked (#61). Filled by
+       report.js, because the wording depends on whether the phone has already
+       admitted it is offline. Above the form on purpose: it has to be read
+       before a photo and a GPS wait are spent on a send that will fail. -->
+  <div id="api-warning" class="notice is-warn" role="alert" hidden></div>
+
   <form id="report-form" novalidate>
 
     <!-- Honeypot: real people never see or fill this. -->
@@ -122,6 +128,9 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js"></script>
+<!-- Before both readers: the form warns with it, the version badge reports
+     with it, and the endpoint gets asked once rather than twice. -->
+<script src="api-probe.js"></script>
 <script src="report.js"></script>
 <script src="version.js"></script>
 </body>

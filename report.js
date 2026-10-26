@@ -23,6 +23,7 @@
   var dismissedDisagreement = false;  // they answered "keep my pin"
   var manualChosen = false; // they asked to place it themselves
   var isBrave = false;
+  var apiDown = false;      // the endpoint did not answer when we asked
 
   function el(id) { return document.getElementById(id); }
 
@@ -63,6 +64,75 @@
   function uuid() {
     if (window.crypto && crypto.randomUUID) { return crypto.randomUUID(); }
     return "s-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  /* --------------------------------------------- can we send at all? */
+
+  /* Ask the endpoint on load, and say so if it does not answer.
+   *
+   * Before this, the order of events was: pick an organization, take a photo,
+   * wait up to thirty seconds for a GPS fix, press Send, fail, retry, fail.
+   * Every step after the first happened once the answer was already knowable.
+   * On 2026-10-25 two volunteers walked that whole path twice and lost the
+   * photos (#61).
+   *
+   * It warns and does not disable. A probe cannot tell a dead endpoint from a
+   * phone at the edge of signal — see api-probe.js — and a false alarm that
+   * talks someone out of sending does the precise harm this exists to prevent.
+   * The volunteer is standing in the park and may know better than we do, so
+   * Send stays live and the photo still gets its chance.
+   */
+  function renderApiWarning() {
+    var box = el("api-warning");
+
+    if (!apiDown) { box.hidden = true; return; }
+
+    // navigator.onLine is only worth reading in one direction: false is
+    // reliable, true means nothing at all. So this never claims the server is
+    // at fault, it only takes the blame when the phone has already admitted it.
+    var offline = navigator.onLine === false;
+
+    box.textContent = "";
+
+    var head = document.createElement("strong");
+    head.textContent = offline ? "You're offline." : "Can't reach the server.";
+    box.appendChild(head);
+    // The static notices get this space from the newline in their markup.
+    // Built nodes have no whitespace between them, so it has to be said.
+    box.appendChild(document.createTextNode(" "));
+
+    var line = document.createElement("span");
+    line.textContent = offline
+      ? "A photo can't be sent until this phone is back online. Come back to " +
+        "this page then and it will check again."
+      : "Sending may not work right now. It could be us or it could be your " +
+        "connection — this page can't tell. You can still try, and if you " +
+        "come back to it later it will check again.";
+    box.appendChild(line);
+
+    box.hidden = false;
+  }
+
+  function checkApi() {
+    if (typeof MOOPMAP_API === "undefined") { return; }
+    MOOPMAP_API.probe().then(function (r) {
+      // Only "down" speaks. "unconfigured" is #setup-warning's job and
+      // anything else is not news.
+      apiDown = r.state === "down";
+      renderApiWarning();
+    });
+  }
+
+  // Known-bad must not go on reading as bad once it is fixed, which is the
+  // same mistake as #61 with the sign reversed. So the warning gets taken back
+  // if the endpoint recovers while the page sits open — and only then, because
+  // a page with nothing to retract has no reason to ask again.
+  function recheckApi() {
+    if (!apiDown || typeof MOOPMAP_API === "undefined") { return; }
+    MOOPMAP_API.recheck().then(function (r) {
+      apiDown = r.state === "down";
+      renderApiWarning();
+    });
   }
 
   /* ----------------------------------------------------------- chapters */
@@ -535,11 +605,13 @@
     // No visibility test: a pageshow means this page is being displayed,
     // including a back-navigation restored from the cache.
     if (worthRetrying()) { requestLocation(); }
+    recheckApi();
   }
 
   function retryOnVisible() {
     if (document.visibilityState !== "visible") { return; }
     if (worthRetrying()) { requestLocation(); }
+    recheckApi();
   }
 
   function requestLocation() {
@@ -1211,6 +1283,9 @@
 
     detectBrave();
     checkGeoPermission();
+
+    // Before the photo and before the GPS wait, which is the whole point.
+    checkApi();
 
     // Start on load, so the fix resolves while a chapter is picked and the
     // photo is taken. Requesting it when the photo is attached meant
